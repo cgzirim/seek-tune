@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    Browser base64 Session Description<br />
+<textarea id="localSessionDescription" readonly="true"></textarea> <br />
+<button onclick="window.copySDP()">
+	Copy browser SDP to clipboard
+</button>
+<br />
+<br />
+
+Golang base64 Session Description<br />
+<textarea id="remoteSessionDescription"></textarea> <br/>
+<button onclick="window.startSession()"> Start Session </button><br />
+
+<br />
+
+Video<br />
+<video id="video1" width="160" height="120" autoplay muted></video> <br />
+
+Logs<br />
+<div id="logs"></div>
+
+    
+</body>
+</html>
