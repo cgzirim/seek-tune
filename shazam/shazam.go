@@ -121,25 +121,35 @@ func timeDifference(timestamps []string) ([]int, error) {
 	return differences, nil
 }
 
-// Chunkify divides the input audio data into chunks of bytes.
-// It converts each byte in each chunk to a complex number, performs FFT on each
-// chunk and returns the FFT results as a slice of slices of complex128.
+// Chunkify divides the input audio signal into chunks and calculates the Short-Time Fourier Transform (STFT) for each chunk.
+// The function returns a 2D slice containing the STFT coefficients for each chunk.
 func Chunkify(audio []byte) [][]complex128 {
-	totalSize := len(audio)
-	totalChunksInAudio := totalSize / chunkSize
+	const hopSize = 32
+	numWindows := len(audio) / (chunkSize - hopSize)
+	chunks := make([][]complex128, numWindows)
 
-	chunks := make([][]complex128, totalChunksInAudio) // Slice of complex arrays
+	// Apply Hamming window function
+	window := make([]float64, chunkSize)
+	for i := range window {
+		window[i] = 0.54 - 0.46*math.Cos(2*math.Pi*float64(i)/float64(chunkSize-1))
+	}
 
-	for i := 0; i < totalChunksInAudio; i++ {
-		complexArray := make([]complex128, chunkSize) // Initialize a complex array for each chunk
-
-		for j := 0; j < chunkSize; j++ {
-			// convert each byte in chunk to a complex number
-			b := audio[(i*chunkSize)+j]
-			complexArray[j] = complex(float64(b), 0)
+	// Perform STFT
+	for i := 0; i < numWindows; i++ {
+		// Extract current chunk
+		start := i * hopSize
+		end := start + chunkSize
+		if end > len(audio) {
+			end = len(audio)
 		}
 
-		chunks[i] = Fft(complexArray)
+		chunk := make([]complex128, chunkSize)
+		for j := start; j < end; j++ {
+			chunk[j-start] = complex(float64(audio[j])*window[j-start], 0)
+		}
+
+		// Compute FFT
+		chunks[i] = Fft(chunk)
 	}
 
 	return chunks
