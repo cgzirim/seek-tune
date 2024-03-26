@@ -20,6 +20,8 @@ type ResourceEndpoint struct {
 
 type Track struct {
 	Title, Artist, Album string
+	Artists              []string
+	Duration             int
 }
 
 const (
@@ -106,11 +108,11 @@ func TrackInfo(url string) (*Track, error) {
 		return nil, fmt.Errorf("received non-200 status code: %d", statusCode)
 	}
 
-	track := &Track{
-		Title:  gjson.Get(jsonResponse, "data.trackUnion.name").String(),
-		Artist: gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
-		Album:  gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
-	}
+	// track := &Track{
+	// 	Title:  gjson.Get(jsonResponse, "data.trackUnion.name").String(),
+	// 	Artist: gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
+	// 	Album:  gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
+	// }
 
 	var allArtists []string
 
@@ -126,6 +128,14 @@ func TrackInfo(url string) (*Track, error) {
 				}
 			}
 		}
+	}
+
+	track := &Track{
+		Title:    gjson.Get(jsonResponse, "data.trackUnion.name").String(),
+		Artist:   gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
+		Artists:  allArtists,
+		Duration: int(gjson.Get(jsonResponse, "data.trackUnion.duration.totalMilliseconds").Int()),
+		Album:    gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
 	}
 
 	fmt.Println("ARTISTS: ", allArtists)

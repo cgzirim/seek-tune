@@ -68,7 +68,7 @@ func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error
 	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
 	if err == nil {
 		// If the fingerprint already exists, append the chunkData to the existing list
-		fmt.Println("DUPLICATE FINGERPRINT: ", chunkfgp)
+		// fmt.Println("DUPLICATE FINGERPRINT: ", chunkfgp)
 		update := bson.M{"$push": bson.M{"chunkData": chunkData}}
 		_, err := chunksCollection.UpdateOne(context.Background(), filter, update)
 		if err != nil {
@@ -88,28 +88,6 @@ func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error
 	return nil
 }
 
-// func (db *DbClient) GetChunkData(chunkfgp int64) ([]interface{}, error) {
-// 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-// 	type chunkData struct {
-// 		ChunkData []interface{} `bson:"chunkData"`
-// 	}
-
-// 	var result chunkData
-
-// 	filter := bson.M{"fingerprint": chunkfgp}
-// 	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
-
-// 	if err != nil {
-// 		if err == mongo.ErrNoDocuments {
-// 			return nil, nil
-// 		}
-// 		return nil, fmt.Errorf("error retrieving chunk data: %w", err)
-// 	}
-
-// 	return result.ChunkData, nil
-// }
-
 type chunkData struct {
 	SongName     string `bson:"songName"`
 	SongArtist   string `bson:"songArtist"`
@@ -118,53 +96,6 @@ type chunkData struct {
 	SamplingRate int    `bson:"samplingRate"`
 	TimeStamp    string `bson:"timeStamp"`
 }
-
-// func (db *DbClient) GetChunkData(chunkfgp int64) ([]chunkData, error) {
-// 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-// 	var result []chunkData
-
-// 	filter := bson.M{"fingerprint": chunkfgp}
-// 	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
-
-// 	if err != nil {
-// 		if err == mongo.ErrNoDocuments {
-// 			return nil, nil
-// 		}
-// 		return nil, fmt.Errorf("error retrieving chunk data: %w", err)
-// 	}
-
-// 	return result, nil
-// }
-
-// func (db *DbClient) GetChunkData(chunkfgp int64) ([]map[string]interface{}, error) {
-// 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-// 	// Change FindOne to Find to retrieve multiple documents
-// 	filter := bson.M{"fingerprint": chunkfgp}
-// 	cursor, err := chunksCollection.Find(context.Background(), filter)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error retrieving chunk data: %w", err)
-// 	}
-// 	defer cursor.Close(context.Background())
-
-// 	var results []map[string]interface{}
-// 	for cursor.Next(context.Background()) {
-// 		var data map[string]interface{} // Assuming retrieved data is a map
-// 		if err := cursor.Decode(&data); err != nil {
-// 			return nil, fmt.Errorf("error decoding chunk data: %w", err)
-// 		}
-
-// 		// Append original map to the results slice
-// 		results = append(results, data)
-// 	}
-
-// 	if err := cursor.Err(); err != nil {
-// 		return nil, fmt.Errorf("error iterating through cursor: %w", err)
-// 	}
-
-// 	return results, nil
-// }
 
 func (db *DbClient) GetChunkData(chunkfgp int64) ([]primitive.M, error) {
 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")

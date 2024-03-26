@@ -10,71 +10,75 @@ import (
 	"song-recognition/utils"
 	"sort"
 	"time"
+
+	"github.com/mjibson/go-dsp/fft"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Constants
 const (
 	chunkSize    = 4096 // 4KB
+	hopSize      = 128
 	fuzzFactor   = 2
 	bitDepth     = 2
 	channels     = 1
 	samplingRate = 44100
 )
 
-// AudioInfo contains details about the audio data.
-type AudioInfo struct {
-	SongName     string
-	SongArtist   string
-	BitDepth     int
-	Channels     int
-	SamplingRate int
-	TimeStamp    string // TimeStamp for the chunk
+type ChunkTag struct {
+	SongName   string
+	SongArtist string
+	YouTubeID  string
+	TimeStamp  string
 }
 
-func Match(sampleAudio []byte) (string, error) {
+func Match(sampleAudio []byte) ([]primitive.M, error) {
 	sampleChunks := Chunkify(sampleAudio)
 	chunkFingerprints, _ := FingerprintChunks(sampleChunks, nil)
 
 	db, err := utils.NewDbClient()
 	if err != nil {
-		return "", fmt.Errorf("error connecting to DB: %d", err)
+		return nil, fmt.Errorf("error connecting to DB: %d", err)
 	}
 	defer db.Close()
 
-	var results = make(map[string][]string)
+	var chunkTags = make(map[string]primitive.M)
+	var songsTimestamps = make(map[string][]string)
 	for _, chunkfgp := range chunkFingerprints {
-		listOfChunkData, err := db.GetChunkData(chunkfgp)
+		listOfChunkTags, err := db.GetChunkData(chunkfgp)
 		if err != nil {
-			return "", fmt.Errorf("error getting chunk data with fingerpring %d: %v", chunkfgp, err)
+			return nil, fmt.Errorf("error getting chunk data with fingerprint %d: %v", chunkfgp, err)
 		}
 
-		for _, chunkData := range listOfChunkData {
-			timeStamp := fmt.Sprint(chunkData["timestamp"])
-			songKey := fmt.Sprintf("%s by %s", chunkData["songname"], chunkData["songartist"])
+		for _, chunkTag := range listOfChunkTags {
+			timeStamp := fmt.Sprint(chunkTag["timestamp"])
+			songKey := fmt.Sprintf("%s by %s", chunkTag["songname"], chunkTag["songartist"])
 
-			if results[songKey] == nil {
-				results[songKey] = []string{timeStamp}
+			if songsTimestamps[songKey] == nil {
+				songsTimestamps[songKey] = []string{timeStamp}
+				chunkTags[songKey] = chunkTag
 			} else {
-				results[songKey] = append(results[songKey], timeStamp)
+				songsTimestamps[songKey] = append(songsTimestamps[songKey], timeStamp)
 			}
 		}
 	}
 
-	fmt.Println("Results: ", results)
-
 	maxMatchCount := 0
 	var maxMatch string
 
-	for songKey, timestamps := range results {
+	matches := make(map[string][]int)
+
+	for songKey, timestamps := range songsTimestamps {
 		differences, err := timeDifference(timestamps)
 		if err != nil && err.Error() == "insufficient timestamps" {
 			continue
 		} else if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		fmt.Printf("%s DIFFERENCES: %d\n", songKey, differences)
 		if len(differences) >= 2 {
+			matches[songKey] = differences
 			if len(differences) > maxMatchCount {
 				maxMatchCount = len(differences)
 				maxMatch = songKey
@@ -82,8 +86,41 @@ func Match(sampleAudio []byte) (string, error) {
 		}
 	}
 
+	sortedChunkTags := sortMatchesByTimeDifference(matches, chunkTags)
+
+	fmt.Println("SORTED CHUNK TAGS: ", sortedChunkTags)
+	fmt.Println("MATCHES: ", matches)
 	fmt.Println("MATCH: ", maxMatch)
-	return "", nil
+	fmt.Println()
+	return sortedChunkTags, nil
+}
+
+func sortMatchesByTimeDifference(matches map[string][]int, chunkTags map[string]primitive.M) []primitive.M {
+	type songDifferences struct {
+		songKey     string
+		differences []int
+		sum         int
+	}
+
+	var kvPairs []songDifferences
+	for songKey, differences := range matches {
+		sum := 0
+		for _, difference := range differences {
+			sum += difference
+		}
+		kvPairs = append(kvPairs, songDifferences{songKey, differences, sum})
+	}
+
+	sort.Slice(kvPairs, func(i, j int) bool {
+		return kvPairs[i].sum > kvPairs[j].sum
+	})
+
+	var sortedChunkTags []primitive.M
+	for _, pair := range kvPairs {
+		sortedChunkTags = append(sortedChunkTags, chunkTags[pair.songKey])
+	}
+
+	return sortedChunkTags
 }
 
 func timeDifference(timestamps []string) ([]int, error) {
@@ -105,8 +142,7 @@ func timeDifference(timestamps []string) ([]int, error) {
 		timestampsInSeconds[i] = (hours * 3600) + (minutes * 60) + seconds
 	}
 
-	sort.Ints(timestampsInSeconds)
-	fmt.Println("timeStampsInSeconds: ", timestampsInSeconds)
+	// sort.Ints(timestampsInSeconds)
 
 	differences := []int{}
 
@@ -124,7 +160,6 @@ func timeDifference(timestamps []string) ([]int, error) {
 // Chunkify divides the input audio signal into chunks and calculates the Short-Time Fourier Transform (STFT) for each chunk.
 // The function returns a 2D slice containing the STFT coefficients for each chunk.
 func Chunkify(audio []byte) [][]complex128 {
-	const hopSize = 32
 	numWindows := len(audio) / (chunkSize - hopSize)
 	chunks := make([][]complex128, numWindows)
 
@@ -149,7 +184,8 @@ func Chunkify(audio []byte) [][]complex128 {
 		}
 
 		// Compute FFT
-		chunks[i] = Fft(chunk)
+		// chunks[i] = Fft(chunk)
+		chunks[i] = fft.FFT(chunk)
 	}
 
 	return chunks
@@ -157,17 +193,19 @@ func Chunkify(audio []byte) [][]complex128 {
 
 // FingerprintChunks processes a collection of audio data represented as chunks of complex numbers and
 // generates fingerprints for each chunk based on the magnitude of frequency components within specific frequency ranges.
-func FingerprintChunks(chunks [][]complex128, audioInfo *AudioInfo) ([]int64, map[int64]AudioInfo) {
+func FingerprintChunks(chunks [][]complex128, chunkTag *ChunkTag) ([]int64, map[int64]ChunkTag) {
 	var fingerprintList []int64
-	fingerprintMap := make(map[int64]AudioInfo)
+	fingerprintMap := make(map[int64]ChunkTag)
 
-	var bytesPerSecond, chunksPerSecond int
+	var chunksPerSecond int
 	var chunkCount int
 	var chunkTime time.Time
 
-	if audioInfo != nil {
-		bytesPerSecond = (samplingRate * bitDepth * channels) / 8
-		chunksPerSecond = bytesPerSecond / chunkSize
+	if chunkTag != nil {
+		// bytesPerSecond = (samplingRate * bitDepth * channels) / 8
+		chunksPerSecond = (chunkSize - hopSize) / samplingRate
+		chunksPerSecond = 9
+		fmt.Println("CHUNKS PER SECOND: ", chunksPerSecond)
 		// if chunkSize == 4096 {
 		// 	chunksPerSecond = 10
 		// }
@@ -176,7 +214,7 @@ func FingerprintChunks(chunks [][]complex128, audioInfo *AudioInfo) ([]int64, ma
 	}
 
 	for _, chunk := range chunks {
-		if audioInfo != nil {
+		if chunkTag != nil {
 			chunkCount++
 			if chunkCount == chunksPerSecond {
 				chunkCount = 0
@@ -218,13 +256,22 @@ func FingerprintChunks(chunks [][]complex128, audioInfo *AudioInfo) ([]int64, ma
 			int64(chunkMags["250-500"]),
 			int64(chunkMags["500-2000"]),
 			int64(chunkMags["2000-4000"])}
-		key := hash1(points[:])
+		// key := hash1(points[:])
 		// fmt.Printf("%s: %v\n", fingerprint, key)
 
-		if audioInfo != nil {
-			newAudioInfo := *audioInfo
-			newAudioInfo.TimeStamp = chunkTime.Format("15:04:05")
-			fingerprintMap[key] = newAudioInfo
+		// points := [6]int64{
+		// 	int64(chunkMags["20-60"]),
+		// 	int64(chunkMags["60-250"]),
+		// 	int64(chunkMags["250-500"]),
+		// 	int64(chunkMags["500-2000"]),
+		// 	int64(chunkMags["2000-4000"]),
+		// 	int64(chunkMags["4000-8000"])}
+		key := hash(points[:])
+
+		if chunkTag != nil {
+			newSampleTag := *chunkTag
+			newSampleTag.TimeStamp = chunkTime.Format("15:04:05")
+			fingerprintMap[key] = newSampleTag
 		} else {
 			fingerprintList = append(fingerprintList, key)
 		}
@@ -234,15 +281,11 @@ func FingerprintChunks(chunks [][]complex128, audioInfo *AudioInfo) ([]int64, ma
 }
 
 func hash(values []int64) int64 {
-	if len(values) != 7 {
-		return 0 // Handle invalid input length
-	}
-
+	weight := 100
 	var result int64
-	for i := 0; i < len(values); i++ {
-		roundedValue := values[i] - (values[i] % fuzzFactor)
-		weight := int64(math.Pow10(len(values) - i - 1))
-		result += roundedValue * weight
+	for _, value := range values {
+		result += (value - (value % fuzzFactor)) * int64(weight)
+		weight = weight * weight
 	}
 
 	return result

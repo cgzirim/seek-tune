@@ -5,27 +5,24 @@
 // +build !js
 
 // save-to-disk is a simple application that shows how to record your webcam/microphone using Pion WebRTC and save VP8/Opus to disk.
-package main
+package signal
 
 import (
 	"fmt"
 	"io"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"song-recognition/shazam"
-	"song-recognition/signal"
 
 	"github.com/pion/webrtc/v4/pkg/media"
-	"github.com/pion/webrtc/v4/pkg/media/oggwriter"
 )
 
-func saveToDisk(i media.Writer, track *webrtc.TrackRemote) {
+func SaveToDisk(i media.Writer, track *webrtc.TrackRemote) {
 	defer func() {
 		if err := i.Close(); err != nil {
 			panic(err)
@@ -45,7 +42,7 @@ func saveToDisk(i media.Writer, track *webrtc.TrackRemote) {
 	}
 }
 
-func saveToBytes(track *webrtc.TrackRemote) ([]byte, error) {
+func SaveToBytes(track *webrtc.TrackRemote) ([]byte, error) {
 	var audioData []byte
 
 	for {
@@ -68,7 +65,7 @@ func saveToBytes(track *webrtc.TrackRemote) ([]byte, error) {
 	return audioData, nil
 }
 
-func MatchSampleAudio(track *webrtc.TrackRemote) (string, error) {
+func MatchSampleAudio(track *webrtc.TrackRemote) ([]primitive.M, error) {
 	// Use time.After to stop after 15 seconds
 	stop := time.After(50 * time.Second)
 
@@ -77,37 +74,44 @@ func MatchSampleAudio(track *webrtc.TrackRemote) (string, error) {
 	defer ticker.Stop()
 
 	var sampleAudio []byte
+	var matches []primitive.M
 
 	for {
 		select {
 		case <-ticker.C:
 			// Process sampleAudio every 2 seconds
 			if len(sampleAudio) > 0 {
-				match, err := shazam.Match(sampleAudio)
+				matchess, err := shazam.Match(sampleAudio)
+				matches = matchess
 				if err != nil {
 					fmt.Println(err)
-					return "", nil
+					return nil, nil
 				}
 
 				// Reset sampleAudio for fresh input
 				// sampleAudio = nil
-				if len(match) > 0 {
-					fmt.Println("FOUND A MATCH! - ", match)
-					return match, nil
-				}
+				// if len(matches) > 0 {
+				// 	fmt.Println("FOUND A MATCH! - ", matches)
+				// 	jsonData, err := json.Marshal(matches)
+				// 	if err != nil {
+				// 		fmt.Println(err)
+				// 		return "", nil
+				// 	}
+				// 	return string(jsonData), nil
+				// }
 			}
 		case <-stop:
 			// Stop after 15 seconds
 			fmt.Println("Stopped after 15 seconds")
-			return "", nil
+			return matches, nil
 		default:
 			// Read RTP packets and accumulate sampleAudio
 			rtpPacket, _, err := track.ReadRTP()
 			if err != nil {
 				if err != io.EOF {
-					return "", fmt.Errorf("error reading RTP packet: %d", err)
+					return nil, fmt.Errorf("error reading RTP packet: %d", err)
 				}
-				return "", err
+				return nil, err
 			}
 
 			// Extract audio payload from RTP packet
@@ -119,7 +123,7 @@ func MatchSampleAudio(track *webrtc.TrackRemote) (string, error) {
 }
 
 // nolint:gocognit
-func main() {
+func SetupWebRTC(encodedOffer string) *webrtc.PeerConnection {
 	// Everything below is the Pion WebRTC API! Thanks for using it ❤️.
 
 	// Create a MediaEngine object to configure the supported codec
@@ -169,53 +173,9 @@ func main() {
 		panic(err)
 	}
 
-	// Allow us to receive 1 audio track
-	if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
-		panic(err)
-	}
-
-	// Create an Ogg file for audio output
-	oggFile, err := oggwriter.New("output.ogg", 44100, 1)
-	if err != nil {
-		panic(err)
-	}
-
-	// Set a handler for when a new remote track starts, this handler saves buffers to disk as
-	// an Ogg file.
-	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		codec := track.Codec()
-		if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
-			fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
-			saveToDisk(oggFile, track)
-		}
-	})
-
-	// Set the handler for ICE connection state
-	// This will notify you when the peer has connected/disconnected
-	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
-
-		if connectionState == webrtc.ICEConnectionStateConnected {
-			fmt.Println("Ctrl+C the remote client to stop the demo")
-		} else if connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
-			if closeErr := oggFile.Close(); closeErr != nil {
-				panic(closeErr)
-			}
-
-			fmt.Println("Done writing media files")
-
-			// Gracefully shutdown the peer connection
-			if closeErr := peerConnection.Close(); closeErr != nil {
-				panic(closeErr)
-			}
-
-			os.Exit(0)
-		}
-	})
-
 	// Wait for the offer to be pasted
 	offer := webrtc.SessionDescription{}
-	signal.Decode(signal.MustReadStdin(), &offer)
+	Decode(encodedOffer, &offer)
 
 	// Set the remote SessionDescription
 	err = peerConnection.SetRemoteDescription(offer)
@@ -243,9 +203,5 @@ func main() {
 	// in a production application you should exchange ICE Candidates via OnICECandidate
 	<-gatherComplete
 
-	// Output the answer in base64 so we can paste it in browser
-	fmt.Println(signal.Encode(*peerConnection.LocalDescription()))
-
-	// Block forever
-	select {}
+	return peerConnection
 }
