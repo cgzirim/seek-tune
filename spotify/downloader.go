@@ -308,7 +308,7 @@ func correctFilename(title, artist string) (string, string) {
 	return title, artist
 }
 
-func processAndSaveSong(m4aFile, songName, songArtist, ytID string) error {
+func processAndSaveSong(m4aFile, songTitle, songArtist, ytID string) error {
 	db, err := utils.NewDbClient()
 	if err != nil {
 		return fmt.Errorf("error connecting to DB: %d", err)
@@ -316,7 +316,7 @@ func processAndSaveSong(m4aFile, songName, songArtist, ytID string) error {
 	defer db.Close()
 
 	// Check if the song has been processed and saved before
-	songKey := fmt.Sprintf("%s - %s", songName, songArtist)
+	songKey := fmt.Sprintf("%s - %s", songTitle, songArtist)
 	songExists, err := db.SongExists(songKey)
 	if err != nil {
 		return fmt.Errorf("error checking if song exists: %v", err)
@@ -345,10 +345,10 @@ func processAndSaveSong(m4aFile, songName, songArtist, ytID string) error {
 	lines := strings.Split(string(output), "\n")
 	// bitDepth, _ := strconv.Atoi(strings.TrimSpace(lines[1]))
 	sampleRate, _ := strconv.Atoi(strings.TrimSpace(lines[0]))
-	fmt.Printf("SAMPLE RATE for %s: %v", songName, sampleRate)
+	fmt.Printf("SAMPLE RATE for %s: %v", songTitle, sampleRate)
 
 	chunkTag := shazam.ChunkTag{
-		SongName:   songName,
+		SongTitle:  songTitle,
 		SongArtist: songArtist,
 		YouTubeID:  ytID,
 	}
@@ -358,8 +358,8 @@ func processAndSaveSong(m4aFile, songName, songArtist, ytID string) error {
 	_, fingerprints := shazam.FingerprintChunks(chunks, &chunkTag)
 
 	// Save fingerprints to MongoDB
-	for fgp, chunkData := range fingerprints {
-		err := db.InsertChunkData(fgp, chunkData)
+	for fgp, ctag := range fingerprints {
+		err := db.InsertChunkTag(fgp, ctag)
 		if err != nil {
 			return fmt.Errorf("error inserting document: %v", err)
 		}

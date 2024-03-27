@@ -35,6 +35,16 @@ func (db *DbClient) Close() error {
 	return nil
 }
 
+func (db *DbClient) TotalSongs() (int, error) {
+	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
+	total, err := existingSongsCollection.CountDocuments(context.Background(), bson.D{})
+	if err != nil {
+		return 0, err
+	}
+
+	return int(total), nil
+}
+
 func (db *DbClient) SongExists(key string) (bool, error) {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
 	filter := bson.M{"_id": key}
@@ -59,7 +69,7 @@ func (db *DbClient) RegisterSong(key string) error {
 	return nil
 }
 
-func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error {
+func (db *DbClient) InsertChunkTag(chunkfgp int64, chunkTag interface{}) error {
 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
 
 	filter := bson.M{"fingerprint": chunkfgp}
@@ -67,9 +77,9 @@ func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error
 	var result bson.M
 	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
 	if err == nil {
-		// If the fingerprint already exists, append the chunkData to the existing list
+		// If the fingerprint already exists, append the chunkTag to the existing list
 		// fmt.Println("DUPLICATE FINGERPRINT: ", chunkfgp)
-		update := bson.M{"$push": bson.M{"chunkData": chunkData}}
+		update := bson.M{"$push": bson.M{"chunkTags": chunkTag}}
 		_, err := chunksCollection.UpdateOne(context.Background(), filter, update)
 		if err != nil {
 			return fmt.Errorf("error updating chunk data: %v", err)
@@ -80,7 +90,7 @@ func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error
 	}
 
 	// If the document doesn't exist, insert a new document
-	_, err = chunksCollection.InsertOne(context.Background(), bson.M{"fingerprint": chunkfgp, "chunkData": []interface{}{chunkData}})
+	_, err = chunksCollection.InsertOne(context.Background(), bson.M{"fingerprint": chunkfgp, "chunkTags": []interface{}{chunkTag}})
 	if err != nil {
 		return fmt.Errorf("error inserting chunk data: %v", err)
 	}
@@ -88,16 +98,7 @@ func (db *DbClient) InsertChunkData(chunkfgp int64, chunkData interface{}) error
 	return nil
 }
 
-type chunkData struct {
-	SongName     string `bson:"songName"`
-	SongArtist   string `bson:"songArtist"`
-	BitDepth     int    `bson:"bitDepth"`
-	Channels     int    `bson:"channels"`
-	SamplingRate int    `bson:"samplingRate"`
-	TimeStamp    string `bson:"timeStamp"`
-}
-
-func (db *DbClient) GetChunkData(chunkfgp int64) ([]primitive.M, error) {
+func (db *DbClient) GetChunkTags(chunkfgp int64) ([]primitive.M, error) {
 	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
 
 	filter := bson.M{"fingerprint": chunkfgp}
@@ -111,10 +112,45 @@ func (db *DbClient) GetChunkData(chunkfgp int64) ([]primitive.M, error) {
 		return nil, fmt.Errorf("error retrieving chunk data: %w", err)
 	}
 
-	var listOfChunkData []primitive.M
-	for _, data := range result["chunkData"].(primitive.A) {
-		listOfChunkData = append(listOfChunkData, data.(primitive.M))
+	var listOfChunkTags []primitive.M
+	for _, data := range result["chunkTags"].(primitive.A) {
+		listOfChunkTags = append(listOfChunkTags, data.(primitive.M))
 	}
 
-	return listOfChunkData, nil
+	return listOfChunkTags, nil
+}
+
+func (db *DbClient) GetChunkTagForSong(songTitle, songArtist string) (bson.M, error) {
+	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
+
+	filter := bson.M{
+		"chunkTags": bson.M{
+			"$elemMatch": bson.M{
+				"songtitle":  songTitle,
+				"songartist": songArtist,
+			},
+		},
+	}
+
+	var result bson.M
+	if err := chunksCollection.FindOne(context.Background(), filter).Decode(&result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error finding chunk: %v", err)
+	}
+
+	var chunkTag map[string]interface{}
+	for _, chunk := range result["chunkTags"].(primitive.A) {
+		chunkMap, ok := chunk.(primitive.M)
+		if !ok {
+			continue
+		}
+		if chunkMap["songtitle"] == songTitle && chunkMap["songartist"] == songArtist {
+			chunkTag = chunkMap
+			break
+		}
+	}
+
+	return chunkTag, nil
 }

@@ -21,7 +21,7 @@ import (
 const developerKey = "AIzaSyC3nBFKqudeMItXnYKEeOUryLKhXnqBL7M"
 
 // https://github.com/BharatKalluri/spotifydl/blob/v0.1.0/src/youtube.go
-func VideoID(spTrack Track) (string, error) {
+func getYoutubeIdWithAPI(spTrack Track) (string, error) {
 	service, err := youtube.NewService(context.TODO(), option.WithAPIKey(developerKey))
 	if err != nil {
 		log.Fatalf("Error creating new YouTube client: %v", err)
@@ -77,10 +77,9 @@ func convertStringDurationToSeconds(durationStr string) int {
 }
 
 // GetYoutubeId takes the query as string and returns the search results video ID's
-func GetYoutubeId(spTrack Track) (string, error) {
-	artists := strings.Join(spTrack.Artists, ", ")
-	songDurationInSeconds := spTrack.Duration * 60
-	searchQuery := fmt.Sprintf("'%s' %s %s", spTrack.Title, artists, spTrack.Album)
+func GetYoutubeId(track Track) (string, error) {
+	songDurationInSeconds := track.Duration * 60
+	searchQuery := fmt.Sprintf("'%s' %s %s", track.Title, track.Artist, track.Album)
 
 	searchResults, err := ytSearch(searchQuery, 10)
 	if err != nil {
@@ -99,6 +98,7 @@ func GetYoutubeId(spTrack Track) (string, error) {
 			return result.ID, nil
 		}
 	}
+
 	// Else return the first result if nothing is found
 	return searchResults[0].ID, nil
 }

@@ -26,7 +26,7 @@ const (
 )
 
 type ChunkTag struct {
-	SongName   string
+	SongTitle  string
 	SongArtist string
 	YouTubeID  string
 	TimeStamp  string
@@ -45,14 +45,14 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 	var chunkTags = make(map[string]primitive.M)
 	var songsTimestamps = make(map[string][]string)
 	for _, chunkfgp := range chunkFingerprints {
-		listOfChunkTags, err := db.GetChunkData(chunkfgp)
+		listOfChunkTags, err := db.GetChunkTags(chunkfgp)
 		if err != nil {
 			return nil, fmt.Errorf("error getting chunk data with fingerprint %d: %v", chunkfgp, err)
 		}
 
 		for _, chunkTag := range listOfChunkTags {
 			timeStamp := fmt.Sprint(chunkTag["timestamp"])
-			songKey := fmt.Sprintf("%s by %s", chunkTag["songname"], chunkTag["songartist"])
+			songKey := fmt.Sprintf("%s by %s", chunkTag["songtitle"], chunkTag["songartist"])
 
 			if songsTimestamps[songKey] == nil {
 				songsTimestamps[songKey] = []string{timeStamp}
