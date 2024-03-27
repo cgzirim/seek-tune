@@ -13,6 +13,16 @@ function App() {
   const [serverEngaged, setServerEngaged] = useState(false);
   const [peerConnection, setPeerConnection] = useState();
 
+  function cleanUp() {
+    if (stream != null) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setOffer(null);
+    setStream(null);
+    setPeerConnection(null);
+    setServerEngaged(false);
+  }
+
   // Function to initiate the client peer
   function initiateClientPeer(stream = null) {
     const peer = new Peer({
@@ -71,8 +81,13 @@ function App() {
 
   socket.on("matches", (matches) => {
     matches = JSON.parse(matches);
-    setMatches(matches);
-    console.log("Matches: ", matches);
+    if (matches) {
+      setMatches(matches);
+      console.log("Matches: ", matches);
+    } else {
+      console.log("No Matches");
+    }
+    cleanUp();
   });
 
   socket.on("downloadStatus", (msg) => {
@@ -85,6 +100,20 @@ function App() {
 
   socket.on("playlistStat", (msg) => {
     console.log("Playlist stat: ", msg);
+  });
+
+  useEffect(() => {
+    const emitTotalSongs = () => {
+      socket.emit("totalSongs", "");
+    };
+
+    const intervalId = setInterval(emitTotalSongs, 8000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  socket.on("totalSongs", (totalSongs) => {
+    console.log("Total songs in DB: ", totalSongs);
   });
 
   const streamAudio = () => {
@@ -109,7 +138,7 @@ function App() {
           setOffer(JSON.stringify(data));
           console.log("Offer should be reset");
         });
-        setStream(stream); // Set the audio stream to state
+        setStream(stream);
       })
       .catch((error) => {
         console.error("Error accessing user media:", error);

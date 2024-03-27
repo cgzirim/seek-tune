@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"song-recognition/signal"
 	"song-recognition/spotify"
+	"song-recognition/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -43,9 +44,10 @@ func main() {
 
 	server := socketio.NewServer(nil)
 
-	server.OnConnect("/", func(s socketio.Conn) error {
-		s.SetContext("")
-		log.Println("CONNECTED: ", s.ID())
+	server.OnConnect("/", func(socket socketio.Conn) error {
+		socket.SetContext("")
+		log.Println("CONNECTED: ", socket.ID())
+
 		return nil
 	})
 
@@ -56,72 +58,21 @@ func main() {
 		s.Emit("initAnswer", signal.Encode(*peerConnection.LocalDescription()))
 	})
 
-	server.OnEvent("/", "engage", func(s socketio.Conn, encodedOffer string) {
-		log.Println("engage: ", encodedOffer)
-
-		peerConnection := signal.SetupWebRTC(encodedOffer)
-
-		// Allow us to receive 1 audio track
-		if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
-			panic(err)
-		}
-
-		// Set a handler for when a new remote track starts, this handler saves buffers to disk as
-		// an Ogg file.
-		oggFile, err := oggwriter.New("output.ogg", 44100, 1)
+	server.OnEvent("/", "totalSongs", func(socket socketio.Conn) {
+		db, err := utils.NewDbClient()
 		if err != nil {
-			panic(err)
+			log.Printf("Error connecting to DB: %v", err)
+			return
+		}
+		defer db.Close()
+
+		totalSongs, err := db.TotalSongs()
+		if err != nil {
+			log.Println("Log error getting total songs count:", err)
+			return
 		}
 
-		peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-			codec := track.Codec()
-			if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
-				fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
-				// signal.SaveToDisk(oggFile, track)
-				// TODO turn match to json here
-				matches, err := signal.MatchSampleAudio(track)
-				if err != nil {
-					panic(err)
-				}
-
-				jsonData, err := json.Marshal(matches[:5])
-				if err != nil {
-					fmt.Println("Log error: ", err)
-					return
-				}
-
-				fmt.Println(string(jsonData))
-
-				s.Emit("matches", string(jsonData))
-				peerConnection.Close()
-			}
-		})
-
-		// Set the handler for ICE connection state
-		// This will notify you when the peer has connected/disconnected
-		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			fmt.Printf("Connection State has changed %s \n", connectionState.String())
-
-			if connectionState == webrtc.ICEConnectionStateConnected {
-				fmt.Println("Ctrl+C the remote client to stop the demo")
-			} else if connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
-				if closeErr := oggFile.Close(); closeErr != nil {
-					panic(closeErr)
-				}
-
-				fmt.Println("Done writing media files")
-
-				// Gracefully shutdown the peer connection
-				if closeErr := peerConnection.Close(); closeErr != nil {
-					panic(closeErr)
-				}
-
-				// os.Exit(0)
-			}
-		})
-
-		// Emit answer in base64
-		s.Emit("serverEngaged", signal.Encode(*peerConnection.LocalDescription()))
+		socket.Emit("totalSongs", totalSongs)
 	})
 
 	server.OnEvent("/", "newDownload", func(socket socketio.Conn, spotifyURL string) {
@@ -178,10 +129,28 @@ func main() {
 			socket.Emit("downloadStatus", fmt.Sprintf("%d songs downloaded from playlist", totalTracksDownloaded))
 
 		} else if strings.Contains(spotifyURL, "track") {
-			// check if track already exist
 			trackInfo, err := spotify.TrackInfo(spotifyURL)
 			if err != nil {
 				fmt.Println("log error: ", err)
+				return
+			}
+
+			// check if track already exist
+			db, err := utils.NewDbClient()
+			if err != nil {
+				fmt.Errorf("Log - error connecting to DB: %d", err)
+			}
+			defer db.Close()
+
+			chunkTag, err := db.GetChunkTagForSong(trackInfo.Title, trackInfo.Artist)
+			if err != nil {
+				fmt.Println("chunkTag error: ", err)
+			}
+
+			if chunkTag != nil {
+				socket.Emit("downloadStatus", fmt.Sprintf(
+					"'%s' by '%s' already exists in the database (https://www.youtube.com/watch?v=%s)",
+					trackInfo.Title, trackInfo.Artist, chunkTag["youtubeid"]))
 				return
 			}
 
@@ -197,6 +166,79 @@ func main() {
 			fmt.Println("=> Only Spotify Album/Playlist/Track URL's are supported.")
 			return
 		}
+	})
+
+	server.OnEvent("/", "engage", func(s socketio.Conn, encodedOffer string) {
+		log.Println("engage: ", encodedOffer)
+
+		peerConnection := signal.SetupWebRTC(encodedOffer)
+
+		// Allow us to receive 1 audio track
+		if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
+			panic(err)
+		}
+
+		// Set a handler for when a new remote track starts, this handler saves buffers to disk as
+		// an Ogg file.
+		oggFile, err := oggwriter.New("output.ogg", 44100, 1)
+		if err != nil {
+			panic(err)
+		}
+
+		peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+			codec := track.Codec()
+			if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
+				fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
+				// signal.SaveToDisk(oggFile, track)
+				// TODO turn match to json here
+				matches, err := signal.MatchSampleAudio(track)
+				if err != nil {
+					panic(err)
+				}
+
+				jsonData, err := json.Marshal(matches)
+
+				if len(matches) > 5 {
+					jsonData, err = json.Marshal(matches[:5])
+				}
+
+				if err != nil {
+					fmt.Println("Log error: ", err)
+					return
+				}
+
+				fmt.Println(string(jsonData))
+
+				s.Emit("matches", string(jsonData))
+				peerConnection.Close()
+			}
+		})
+
+		// Set the handler for ICE connection state
+		// This will notify you when the peer has connected/disconnected
+		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+			fmt.Printf("Connection State has changed %s \n", connectionState.String())
+
+			if connectionState == webrtc.ICEConnectionStateConnected {
+				fmt.Println("Ctrl+C the remote client to stop the demo")
+			} else if connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
+				if closeErr := oggFile.Close(); closeErr != nil {
+					panic(closeErr)
+				}
+
+				fmt.Println("Done writing media files")
+
+				// Gracefully shutdown the peer connection
+				if closeErr := peerConnection.Close(); closeErr != nil {
+					panic(closeErr)
+				}
+
+				// os.Exit(0)
+			}
+		})
+
+		// Emit answer in base64
+		s.Emit("serverEngaged", signal.Encode(*peerConnection.LocalDescription()))
 	})
 
 	server.OnError("/", func(s socketio.Conn, e error) {

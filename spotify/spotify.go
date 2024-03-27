@@ -138,9 +138,6 @@ func TrackInfo(url string) (*Track, error) {
 		Album:    gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
 	}
 
-	fmt.Println("ARTISTS: ", allArtists)
-	fmt.Println("TRACK: ", track)
-
 	return track.buildTrack(), nil
 }
 
@@ -239,9 +236,11 @@ func jsonList(resourceType, id string, offset, limit int64) (string, error) {
 
 func (t *Track) buildTrack() *Track {
 	track := &Track{
-		Title:  t.Title,
-		Artist: t.Artist,
-		Album:  t.Album,
+		Title:    t.Title,
+		Artist:   t.Artist,
+		Artists:  t.Artists,
+		Duration: t.Duration,
+		Album:    t.Album,
 	}
 
 	return track
