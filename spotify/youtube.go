@@ -78,7 +78,7 @@ func convertStringDurationToSeconds(durationStr string) int {
 
 // GetYoutubeId takes the query as string and returns the search results video ID's
 func GetYoutubeId(track Track) (string, error) {
-	songDurationInSeconds := track.Duration * 60
+	songDurationInSeconds := track.Duration
 	searchQuery := fmt.Sprintf("'%s' %s %s", track.Title, track.Artist, track.Album)
 
 	searchResults, err := ytSearch(searchQuery, 10)
@@ -99,8 +99,7 @@ func GetYoutubeId(track Track) (string, error) {
 		}
 	}
 
-	// Else return the first result if nothing is found
-	return searchResults[0].ID, nil
+	return "", fmt.Errorf("could not settle on a song from search result for: %s", searchQuery)
 }
 
 func getContent(data []byte, index int) []byte {
@@ -113,6 +112,8 @@ func ytSearch(searchTerm string, limit int) (results []*SearchResult, err error)
 	ytSearchUrl := fmt.Sprintf(
 		"https://www.youtube.com/results?search_query=%s", url.QueryEscape(searchTerm),
 	)
+
+	// fmt.Println("Search URL: ", ytSearchUrl)
 
 	req, err := http.NewRequest("GET", ytSearchUrl, nil)
 	if err != nil {

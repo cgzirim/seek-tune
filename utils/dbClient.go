@@ -22,7 +22,7 @@ func NewDbClient() (*DbClient, error) {
 	clientOptions := options.Client().ApplyURI(dbUri)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error connecting to MongoDB: %d", err)
 	}
 	return &DbClient{client: client}, nil
 }
@@ -45,25 +45,50 @@ func (db *DbClient) TotalSongs() (int, error) {
 	return int(total), nil
 }
 
-func (db *DbClient) SongExists(key string) (bool, error) {
+func (db *DbClient) SongExists(songTitle, songArtist, ytID string) (bool, error) {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
-	filter := bson.M{"_id": key}
+
+	key := fmt.Sprintf("%s - %s", songTitle, songArtist)
+	var filter bson.M
+
+	if len(ytID) == 0 {
+		filter = bson.M{"_id": key}
+	} else {
+		filter = bson.M{"ytID": ytID}
+	}
 
 	var result bson.M
 	if err := existingSongsCollection.FindOne(context.Background(), filter).Decode(&result); err == nil {
 		return true, nil
 	} else if err != mongo.ErrNoDocuments {
-		return false, fmt.Errorf("error querying registered songs: %v", err)
+		return false, fmt.Errorf("failed to retrieve registered songs: %v", err)
 	}
 
 	return false, nil
 }
 
-func (db *DbClient) RegisterSong(key string) error {
+func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) error {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
-	_, err := existingSongsCollection.InsertOne(context.Background(), bson.M{"_id": key})
+
+	// Create a compound unique index on ytID and key, if it doesn't already exist
+	indexModel := mongo.IndexModel{
+		Keys:    bson.D{{"ytID", 1}, {"key", 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := existingSongsCollection.Indexes().CreateOne(context.Background(), indexModel)
 	if err != nil {
-		return fmt.Errorf("error registering song: %v", err)
+		return fmt.Errorf("failed to create unique index: %v", err)
+	}
+
+	// Attempt to insert the song with ytID and key
+	key := fmt.Sprintf("%s - %s", songTitle, songArtist)
+	_, err = existingSongsCollection.InsertOne(context.Background(), bson.M{"_id": key, "ytID": ytID})
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return fmt.Errorf("song with ytID or key already exists: %v", err)
+		} else {
+			return fmt.Errorf("failed to register song: %v", err)
+		}
 	}
 
 	return nil
@@ -82,7 +107,7 @@ func (db *DbClient) InsertChunkTag(chunkfgp int64, chunkTag interface{}) error {
 		update := bson.M{"$push": bson.M{"chunkTags": chunkTag}}
 		_, err := chunksCollection.UpdateOne(context.Background(), filter, update)
 		if err != nil {
-			return fmt.Errorf("error updating chunk data: %v", err)
+			return fmt.Errorf("failed to update chunkTags: %v", err)
 		}
 		return nil
 	} else if err != mongo.ErrNoDocuments {
@@ -92,7 +117,7 @@ func (db *DbClient) InsertChunkTag(chunkfgp int64, chunkTag interface{}) error {
 	// If the document doesn't exist, insert a new document
 	_, err = chunksCollection.InsertOne(context.Background(), bson.M{"fingerprint": chunkfgp, "chunkTags": []interface{}{chunkTag}})
 	if err != nil {
-		return fmt.Errorf("error inserting chunk data: %v", err)
+		return fmt.Errorf("failed to insert chunk tag: %v", err)
 	}
 
 	return nil
@@ -109,7 +134,7 @@ func (db *DbClient) GetChunkTags(chunkfgp int64) ([]primitive.M, error) {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("error retrieving chunk data: %w", err)
+		return nil, fmt.Errorf("failed to retrieve chunk tag: %w", err)
 	}
 
 	var listOfChunkTags []primitive.M
@@ -137,7 +162,7 @@ func (db *DbClient) GetChunkTagForSong(songTitle, songArtist string) (bson.M, er
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("error finding chunk: %v", err)
+		return nil, fmt.Errorf("failed to find chunk: %v", err)
 	}
 
 	var chunkTag map[string]interface{}

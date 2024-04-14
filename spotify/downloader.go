@@ -4,18 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"song-recognition/shazam"
 	"song-recognition/utils"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	// "song-recognition/youtube"
 
 	"github.com/fatih/color"
 	"github.com/kkdai/youtube/v2"
@@ -23,10 +21,10 @@ import (
 
 var yellow = color.New(color.FgYellow)
 
-func DlSingleTrack(url, savePath string) error {
+func DlSingleTrack(url, savePath string) (int, error) {
 	trackInfo, err := TrackInfo(url)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	fmt.Println("Getting track info...")
@@ -34,12 +32,12 @@ func DlSingleTrack(url, savePath string) error {
 	track := []Track{*trackInfo}
 
 	fmt.Println("Now, downloading track...")
-	_, err = dlTrack(track, savePath)
+	totalTracksDownloaded, err := dlTrack(track, savePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return totalTracksDownloaded, nil
 }
 
 func DlPlaylist(url, savePath string) (int, error) {
@@ -52,7 +50,6 @@ func DlPlaylist(url, savePath string) (int, error) {
 	fmt.Println("Now, downloading playlist...")
 	totalTracksDownloaded, err := dlTrack(tracks, savePath)
 	if err != nil {
-		fmt.Println(err)
 		return 0, err
 	}
 
@@ -83,6 +80,12 @@ func dlTrack(tracks []Track, path string) (int, error) {
 	numCPUs := runtime.NumCPU()
 	semaphore := make(chan struct{}, numCPUs)
 
+	db, err := utils.NewDbClient()
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+
 	for _, t := range tracks {
 		wg.Add(1)
 		go func(track Track) {
@@ -100,30 +103,65 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				Title:    track.Title,
 			}
 
-			// id1, err := VideoID(*trackCopy)
+			// check if song exists
+			songExists, _ := db.SongExists(trackCopy.Title, trackCopy.Artist, "")
+			if songExists {
+				logMessage := fmt.Sprintf("'%s' by '%s' already downloaded\n", trackCopy.Title, trackCopy.Artist)
+				slog.Info(logMessage)
+				return
+			}
+
 			ytID, err := GetYoutubeId(*trackCopy)
 			if ytID == "" || err != nil {
-				yellow.Printf("Error (1): '%s' by '%s' could not be downloaded\n", trackCopy.Title, trackCopy.Artist)
+				logMessage := fmt.Sprintf("Error (0): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
+				slog.Error(logMessage)
+				yellow.Printf(logMessage)
 				return
 			}
 
+			// Check if YouTube ID exists
+			ytIdExists, _ := db.SongExists("", "", ytID)
+			if ytIdExists { // try to get the YouTube ID again
+				logMessage := fmt.Sprintf("YouTube ID exists. Trying again: %s\n", ytID)
+				slog.Warn(logMessage)
+
+				ytID, err := GetYoutubeId(*trackCopy)
+				if ytID == "" || err != nil {
+					logMessage := fmt.Sprintf("Error (1): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
+					slog.Info(logMessage)
+					yellow.Printf(logMessage)
+					return
+				}
+
+				ytIdExists, _ := db.SongExists("", "", ytID)
+				if ytIdExists {
+					logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded: YouTube ID (%s) exists\n", trackCopy.Title, trackCopy.Artist, ytID)
+					slog.Error(logMessage)
+					return
+				}
+			}
+
 			trackCopy.Title, trackCopy.Artist = correctFilename(trackCopy.Title, trackCopy.Artist)
-			err = getAudio(ytID, path, trackCopy.Title, trackCopy.Artist)
+			fileName := fmt.Sprintf("%s - %s.m4a", trackCopy.Title, trackCopy.Artist)
+			filePath := filepath.Join(path, fileName)
+
+			err = getAudio(ytID, path, filePath)
 			if err != nil {
-				yellow.Printf("Error (2): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
+				logMessage := fmt.Sprintf("Error (2): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
+				yellow.Printf(logMessage)
+				slog.Error(logMessage)
 				return
 			}
-			// Process and save audio
-			filename := fmt.Sprintf("%s - %s.m4a", trackCopy.Title, trackCopy.Artist)
-			route := filepath.Join(path, filename)
-			err = processAndSaveSong(route, trackCopy.Title, trackCopy.Artist, ytID)
+
+			err = processAndSaveSong(filePath, trackCopy.Title, trackCopy.Artist, ytID)
 			if err != nil {
 				yellow.Println("Error processing audio: ", err)
+				logMessage := fmt.Sprintf("Failed to process song ('%s' by '%s'): %s\n", trackCopy.Title, trackCopy.Artist, err)
+				slog.Error(logMessage)
+				return
 			}
 
-			trackCopy.Title, trackCopy.Artist = correctFilename(trackCopy.Title, trackCopy.Artist)
-			filePath := fmt.Sprintf("%s%s - %s.m4a", path, trackCopy.Title, trackCopy.Artist)
-
+			// Consider removing this and deleting the song file after processing
 			if err := addTags(filePath, *trackCopy); err != nil {
 				yellow.Println("Error adding tags: ", filePath)
 				return
@@ -155,7 +193,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 }
 
 /* github.com/kkdai/youtube */
-func getAudio(id, path, title, artist string) error {
+func getAudio(id, path, filePath string) error {
 	dir, err := os.Stat(path)
 	if err != nil {
 		panic(err)
@@ -163,22 +201,6 @@ func getAudio(id, path, title, artist string) error {
 
 	if !dir.IsDir() {
 		return errors.New("the path is not valid (not a dir)")
-	}
-
-	db, err := utils.NewDbClient()
-	if err != nil {
-		return fmt.Errorf("error connecting to DB: %d", err)
-	}
-	defer db.Close()
-
-	// Check if the song has been processed and saved before
-	songKey := fmt.Sprintf("%s - %s", title, artist)
-	songExists, err := db.SongExists(songKey)
-	if err != nil {
-		return err
-	}
-	if songExists {
-		return fmt.Errorf("song exists")
 	}
 
 	client := youtube.Client{}
@@ -191,15 +213,12 @@ func getAudio(id, path, title, artist string) error {
 	/* change the FindByItag parameter to 139 if you want smaller files (but with a bitrate of 48k) */
 	formats := video.Formats.Itag(140)
 
-	filename := fmt.Sprintf("%s - %s.m4a", title, artist)
-	route := filepath.Join(path, filename)
-
 	/* in some cases, when attempting to download the audio
 	using the library github.com/kkdai/youtube,
 	the download fails (and shows the file size as 0 bytes)
 	until the second or third attempt. */
 	var fileSize int64
-	file, err := os.Create(route)
+	file, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
@@ -214,42 +233,9 @@ func getAudio(id, path, title, artist string) error {
 			return err
 		}
 
-		fileSize, _ = GetFileSize(route)
+		fileSize, _ = GetFileSize(filePath)
 	}
 	defer file.Close()
-
-	return nil
-}
-
-func saveAudioToFile(audioReader io.Reader, path, title, artist string) error {
-	dir, err := os.Stat(path)
-	if err != nil {
-		panic(err)
-	}
-
-	if !dir.IsDir() {
-		return errors.New("the path is not valid (not a dir)")
-	}
-
-	filename := fmt.Sprintf("%s - %s.m4a", title, artist)
-	route := filepath.Join(path, filename)
-
-	/* in some cases, when attempting to download the audio
-	using the library github.com/kkdai/youtube,
-	the download fails (and shows the file size as 0 bytes)
-	until the second or third attempt. */
-	file, err := os.Create(route)
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	// Copy the audio stream to the file
-	_, err = io.Copy(file, audioReader)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -292,60 +278,17 @@ func addTags(file string, track Track) error {
 	return nil
 }
 
-/* fixes some invalid file names (windows is the capricious one) */
-func correctFilename(title, artist string) (string, string) {
-	if runtime.GOOS == "windows" {
-		invalidChars := []byte{'<', '>', '<', ':', '"', '\\', '/', '|', '?', '*'}
-		for _, invalidChar := range invalidChars {
-			title = strings.ReplaceAll(title, string(invalidChar), "")
-			artist = strings.ReplaceAll(artist, string(invalidChar), "")
-		}
-	} else {
-		title = strings.ReplaceAll(title, "/", "\\")
-		artist = strings.ReplaceAll(artist, "/", "\\")
-	}
-
-	return title, artist
-}
-
-func processAndSaveSong(m4aFile, songTitle, songArtist, ytID string) error {
+func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
 	db, err := utils.NewDbClient()
 	if err != nil {
-		return fmt.Errorf("error connecting to DB: %d", err)
+		return err
 	}
 	defer db.Close()
 
-	// Check if the song has been processed and saved before
-	songKey := fmt.Sprintf("%s - %s", songTitle, songArtist)
-	songExists, err := db.SongExists(songKey)
+	audioBytes, err := convertStereoToMono(songFilePath)
 	if err != nil {
-		return fmt.Errorf("error checking if song exists: %v", err)
+		return fmt.Errorf("error converting song to mono: %v", err)
 	}
-	if songExists {
-		fmt.Println("Song exists: ", songKey)
-		return nil
-	}
-
-	// Convert M4A file to mono
-	m4aFileMono := strings.TrimSuffix(m4aFile, filepath.Ext(m4aFile)) + "_mono.m4a"
-	// defer os.Remove(m4aFileMono)
-	audioBytes, err := ConvertM4aToMono(m4aFile, m4aFileMono)
-	if err != nil {
-		return fmt.Errorf("error converting M4A file to mono: %v", err)
-	}
-
-	// Run ffprobe to get metadata of the input file
-	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=bit_depth,sample_rate", "-of", "default=noprint_wrappers=1:nokey=1", m4aFileMono)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error running ffprobe: %v", err)
-	}
-
-	// Parse the output to extract bit depth and sampling rate
-	lines := strings.Split(string(output), "\n")
-	// bitDepth, _ := strconv.Atoi(strings.TrimSpace(lines[1]))
-	sampleRate, _ := strconv.Atoi(strings.TrimSpace(lines[0]))
-	fmt.Printf("SAMPLE RATE for %s: %v", songTitle, sampleRate)
 
 	chunkTag := shazam.ChunkTag{
 		SongTitle:  songTitle,
@@ -353,24 +296,23 @@ func processAndSaveSong(m4aFile, songTitle, songArtist, ytID string) error {
 		YouTubeID:  ytID,
 	}
 
-	// Calculate fingerprints
+	// Fingerprint song
 	chunks := shazam.Chunkify(audioBytes)
 	_, fingerprints := shazam.FingerprintChunks(chunks, &chunkTag)
 
-	// Save fingerprints to MongoDB
+	// Save fingerprints in DB
 	for fgp, ctag := range fingerprints {
 		err := db.InsertChunkTag(fgp, ctag)
 		if err != nil {
-			return fmt.Errorf("error inserting document: %v", err)
+			return err
 		}
 	}
 
-	// Save the song as processed
-	err = db.RegisterSong(songKey)
+	err = db.RegisterSong(songTitle, songArtist, ytID)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Fingerprints saved to MongoDB successfully")
+	fmt.Println("Fingerprints saved in MongoDB successfully")
 	return nil
 }

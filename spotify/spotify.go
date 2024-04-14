@@ -99,7 +99,6 @@ func TrackInfo(url string) (*Track, error) {
 	endpoint := trackInitialPath + endpointQuery + "&extensions=" + EncodeParam(trackEndPath)
 
 	statusCode, jsonResponse, err := request(endpoint)
-	// fmt.Print("TRACK INFO: ", jsonResponse)
 	if err != nil {
 		return nil, fmt.Errorf("error on getting track info: %w", err)
 	}
@@ -107,12 +106,6 @@ func TrackInfo(url string) (*Track, error) {
 	if statusCode != 200 {
 		return nil, fmt.Errorf("received non-200 status code: %d", statusCode)
 	}
-
-	// track := &Track{
-	// 	Title:  gjson.Get(jsonResponse, "data.trackUnion.name").String(),
-	// 	Artist: gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
-	// 	Album:  gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
-	// }
 
 	var allArtists []string
 
@@ -130,11 +123,14 @@ func TrackInfo(url string) (*Track, error) {
 		}
 	}
 
+	durationInSeconds := int(gjson.Get(jsonResponse, "data.trackUnion.duration.totalMilliseconds").Int())
+	durationInSeconds = durationInSeconds / 1000
+
 	track := &Track{
 		Title:    gjson.Get(jsonResponse, "data.trackUnion.name").String(),
 		Artist:   gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
 		Artists:  allArtists,
-		Duration: int(gjson.Get(jsonResponse, "data.trackUnion.duration.totalMilliseconds").Int()),
+		Duration: durationInSeconds,
 		Album:    gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
 	}
 
@@ -256,17 +252,20 @@ func proccessItems(jsonResponse, resourceType string) []Track {
 	songTitle := map[bool]string{true: "itemV2.data.name", false: "track.name"}[resourceType == "playlist"]
 	artistName := map[bool]string{true: "itemV2.data.artists.items.0.profile.name", false: "track.artists.items.0.profile.name"}[resourceType == "playlist"]
 	albumName := map[bool]string{true: "itemV2.data.albumOfTrack.name", false: "data.albumUnion.name"}[resourceType == "playlist"]
+	duration := map[bool]string{true: "itemV2.data.trackDuration.totalMilliseconds", false: "track.duration.totalMilliseconds"}[resourceType == "playlist"]
 
 	var tracks []Track
 	items := gjson.Get(jsonResponse, itemList).Array()
 
 	for _, item := range items {
-		track := &Track{
-			Title:  item.Get(songTitle).String(),
-			Artist: item.Get(artistName).String(),
-			Album:  map[bool]string{true: item.Get(albumName).String(), false: gjson.Get(jsonResponse, albumName).String()}[resourceType == "playlist"],
-		}
+		durationInSeconds := int(item.Get(duration).Int()) / 1000
 
+		track := &Track{
+			Title:    item.Get(songTitle).String(),
+			Artist:   item.Get(artistName).String(),
+			Duration: durationInSeconds,
+			Album:    map[bool]string{true: item.Get(albumName).String(), false: gjson.Get(jsonResponse, albumName).String()}[resourceType == "playlist"],
+		}
 		tracks = append(tracks, *track.buildTrack())
 	}
 

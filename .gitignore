@@ -3,6 +3,9 @@
 #
 # Binaries for programs and plugins
 *.exe
+*.ogg
+*.m4a
+*.zip
 *.exe~
 *.dll
 *.so

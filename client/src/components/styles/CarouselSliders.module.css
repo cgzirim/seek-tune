@@ -1,0 +1,93 @@
+.CarouselSliders {
+    margin: 10px;
+}
+
+.Slider {
+    /* height: 90vmin; */
+    width: 100%;
+    /* background-color: #c1c1c1; */
+    display: flex;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline mandatory;
+    overflow-x: scroll;
+    scroll-behavior: smooth;
+}
+
+.Slider::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.Slider {
+    scrollbar-width: 12px;
+    padding-bottom: 6px;
+}
+.Slider::-webkit-scrollbar-thumb {
+    border-radius: 20px;
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.Slider::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.SlideItem {
+    /* height: 100%;
+    width: 100%;
+    min-width: 90%; */
+    margin-left: 20px;
+   flex-grow: 1;
+   scroll-snap-align: center;
+}
+
+.SlideItem:nth-child(1) { background-color: rebeccapurple;}
+.SlideItem:nth-child(2) { background-color: dodgerblue;}
+.SlideItem:nth-child(3) { background-color: greenyellow;}
+
+.iframe-youtube {
+    width: 420px;
+    height: 210px;
+  }
+
+@media screen and (max-width: 500px) {
+    .iframe-youtube {
+        width: 420px;
+        height: 200px;
+    }
+
+    .Slider {
+        overflow-x: hidden;
+    }
+
+    .Circles {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 8px 0;
+    }
+    .Circles .Link {
+        height: 16px;
+        width: 16px;
+        margin: 0 3px;
+        display: inline-block;
+        border-radius: 50%;
+        background-color: #c1c1c1;
+    }
+
+    .Link.ActiveLink {
+        background-color: #6a0dad;
+      }
+}
+@media screen and (max-width: 600px) {
+    .iframe-youtube {
+        width: 820px;
+        height: 400px;
+    }
+}
+
+@media screen and (max-width: 700px) {
+    .iframe-youtube {
+        width: 420px;
+        height: 210px;
+    }
+} 

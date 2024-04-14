@@ -1,0 +1,46 @@
+Form {
+    width: 80%;
+    margin: auto;
+    display: flex;
+    gap: 12px;
+    align-items: end;
+    justify-content: center;
+  }
+  
+  @media screen and (max-width: 550px) {
+    Form {
+      width: 100%;
+      margin: auto;
+      display: flex;
+      gap: 12px;
+      align-items: end;
+      justify-content: center;
+    }
+  }
+
+
+.FormStatus {
+    margin-bottom: 2px;
+    padding: 2px 5px;
+    background-color: #3498db;
+    border-radius: 2px;
+    animation: slideUp 0.8s forwards;
+}
+
+.FormStatus.NoMessage {
+    /* animation: slideDown 0.8s forwards; */
+    transform: translateX(-50%) translateY(100%);
+}
+
+@keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  
+/* .slideDown {
+transform: translateX(-50%) translateY(100%);
+} */

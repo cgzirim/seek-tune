@@ -27,6 +27,10 @@
   /* 2 */
 }
 
+@media screen and (min-width: 768px) {
+  .iframe-youtube {
+    width: 460px;height: 284px;
+  }}
 /* Sections
    ========================================================================== */
 /**
@@ -42,6 +46,40 @@ body {
 main {
   display: block;
 }
+
+.App {
+  width: 65%;
+  margin: auto;
+}
+
+.songs {
+  text-align: right;
+}
+
+.audio-input {
+  display: flex;
+  justify-content: center;
+  gap: 60px;
+}
+
+.audio-input-device {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.audio-input-mic {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.active-audio-input {
+  padding: 5px;
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  background-color: #c1c1c1;
+}
+
 
 /**
  * Correct the font size and margin on `h1` elements within `section` and
