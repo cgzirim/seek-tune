@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"song-recognition/shazam"
 	"song-recognition/signal"
 	"song-recognition/spotify"
 	"song-recognition/utils"
@@ -154,18 +157,61 @@ func main() {
 				return
 			}
 
-			err = spotify.DlSingleTrack(spotifyURL, tmpSongDir)
+			totalDownloads, err := spotify.DlSingleTrack(spotifyURL, tmpSongDir)
 			if err != nil {
 				socket.Emit("downloadStatus", fmt.Sprintf("Failed to download '%s' by '%s'", trackInfo.Title, trackInfo.Artist))
 				return
 			}
 
-			socket.Emit("downloadStatus", fmt.Sprintf("'%s' by '%s' was downloaded", trackInfo.Title, trackInfo.Artist))
+			if totalDownloads != 1 {
+				socket.Emit("downloadStatus", fmt.Sprintf("'%s' by '%s' failed to download", trackInfo.Title, trackInfo.Artist))
+			} else {
+				socket.Emit("downloadStatus", fmt.Sprintf("'%s' by '%s' was downloaded", trackInfo.Title, trackInfo.Artist))
+			}
 
 		} else {
 			fmt.Println("=> Only Spotify Album/Playlist/Track URL's are supported.")
 			return
 		}
+	})
+
+	server.OnEvent("/", "blob", func(socket socketio.Conn, base64data string) {
+		// Decode base64 data
+		decodedData, err := base64.StdEncoding.DecodeString(base64data)
+		if err != nil {
+			fmt.Println("Error: Failed to decode base64 data:", err)
+			return
+		}
+
+		// Save the decoded data to a file
+		err = ioutil.WriteFile("recorded_audio.ogg", decodedData, 0644)
+		if err != nil {
+			fmt.Println("Error: Failed to write file to disk:", err)
+			return
+		}
+
+		fmt.Println("Audio saved successfully.")
+
+		matches, err := shazam.Match(decodedData)
+		if err != nil {
+			fmt.Println("Error: Failed to match:", err)
+			return
+		}
+
+		jsonData, err := json.Marshal(matches)
+
+		if len(matches) > 5 {
+			jsonData, err = json.Marshal(matches[:5])
+		}
+
+		if err != nil {
+			fmt.Println("Log error: ", err)
+			return
+		}
+
+		socket.Emit("matches", string(jsonData))
+
+		fmt.Println("BLOB: ", matches)
 	})
 
 	server.OnEvent("/", "engage", func(s socketio.Conn, encodedOffer string) {
@@ -180,7 +226,7 @@ func main() {
 
 		// Set a handler for when a new remote track starts, this handler saves buffers to disk as
 		// an Ogg file.
-		oggFile, err := oggwriter.New("output.ogg", 44100, 1)
+		oggFile, err := oggwriter.New("output.ogg", 48000, 1)
 		if err != nil {
 			panic(err)
 		}
@@ -188,9 +234,9 @@ func main() {
 		peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 			codec := track.Codec()
 			if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
-				fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
+				// fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
 				// signal.SaveToDisk(oggFile, track)
-				// TODO turn match to json here
+
 				matches, err := signal.MatchSampleAudio(track)
 				if err != nil {
 					panic(err)

@@ -1,0 +1,80 @@
+.CirlceItems {
+    width: 35vmin;
+    height: 35vmin;
+    position: relative;
+    margin: auto;
+}
+
+.CircleItem {
+    background-color: dodgerblue;
+    height: 100%;
+    width: 100%;
+    border-radius: 50%;
+    position: absolute;
+    
+    opacity: 0;
+}
+
+.Play > .CircleItem {
+    animation: expandFadeOut 3s infinite ease-out;
+}
+
+.Pause > .CircleItem  {
+    animation-play-state: paused;
+    /* transition: opacity 3s ease-out;
+    opacity: 0;
+    animation: expandFadeOut 3s ease-in-out;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards; */
+}
+    
+
+.CircleItem:nth-child(1) { animation-delay: 1s; }
+.CircleItem:nth-child(2) { animation-delay: 2s; }
+.CircleItem:nth-child(3) { animation-delay: 3s; }
+
+.ListenButton,
+.PauseButton {
+    position: absolute;
+    left: 36%;
+    transform: translateX(-50%);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ListenButton {
+    height: 30%;
+    width: 30%;
+    background-color: dodgerblue;
+    border-radius: 50%;
+    color: aliceblue;
+    font-size: 10px;
+    transition-duration: 300ms;
+    cursor: default;
+}
+
+.ListenButton:hover {
+    background-color: dodgerblue;;
+}
+
+.ListenButton.Enabled:hover {
+    scale: 1.1;
+    cursor: pointer;
+    background-color: #0366ee;;
+}
+
+
+@keyframes expandFadeOut {
+    0% {
+        opacity: 0.55;
+        transform: scale(0);
+    } 
+    
+    100% {
+        opacity: 0;
+        transform: scale(1);
+    }
+}

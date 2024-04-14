@@ -38,7 +38,7 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 
 	db, err := utils.NewDbClient()
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to DB: %d", err)
+		return nil, err
 	}
 	defer db.Close()
 
@@ -47,7 +47,7 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 	for _, chunkfgp := range chunkFingerprints {
 		listOfChunkTags, err := db.GetChunkTags(chunkfgp)
 		if err != nil {
-			return nil, fmt.Errorf("error getting chunk data with fingerprint %d: %v", chunkfgp, err)
+			return nil, err
 		}
 
 		for _, chunkTag := range listOfChunkTags {
@@ -69,6 +69,21 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 	matches := make(map[string][]int)
 
 	for songKey, timestamps := range songsTimestamps {
+
+		timestampsInSeconds, err := timestampsInSeconds(timestamps)
+		if err != nil && err.Error() == "insufficient timestamps" {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
+		maxPeak, differenceSum, err := getMaxPeak(timestampsInSeconds)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("%s MaxPeak: %v, DifferenceSum: %d\n", songKey, maxPeak, differenceSum)
+		fmt.Println("=====================================================\n")
+
 		differences, err := timeDifference(timestamps)
 		if err != nil && err.Error() == "insufficient timestamps" {
 			continue
@@ -76,7 +91,7 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 			return nil, err
 		}
 
-		fmt.Printf("%s DIFFERENCES: %d\n", songKey, differences)
+		// fmt.Printf("%s DIFFERENCES: %d\n", songKey, differences)
 		if len(differences) >= 2 {
 			matches[songKey] = differences
 			if len(differences) > maxMatchCount {
@@ -88,10 +103,10 @@ func Match(sampleAudio []byte) ([]primitive.M, error) {
 
 	sortedChunkTags := sortMatchesByTimeDifference(matches, chunkTags)
 
-	fmt.Println("SORTED CHUNK TAGS: ", sortedChunkTags)
-	fmt.Println("MATCHES: ", matches)
+	// fmt.Println("SORTED CHUNK TAGS: ", sortedChunkTags)
+	// fmt.Println("MATCHES: ", matches)
 	fmt.Println("MATCH: ", maxMatch)
-	fmt.Println()
+	// fmt.Println()
 	return sortedChunkTags, nil
 }
 
@@ -123,6 +138,120 @@ func sortMatchesByTimeDifference(matches map[string][]int, chunkTags map[string]
 	return sortedChunkTags
 }
 
+func timestampsInSeconds(timestamps []string) ([]int, error) {
+	layout := "15:04:05"
+
+	timestampsInSeconds := make([]int, len(timestamps))
+	for i, ts := range timestamps {
+		parsedTime, err := time.Parse(layout, ts)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing timestamp %q: %w", ts, err)
+		}
+		hours := parsedTime.Hour()
+		minutes := parsedTime.Minute()
+		seconds := parsedTime.Second()
+		timestampsInSeconds[i] = (hours * 3600) + (minutes * 60) + seconds
+	}
+
+	return timestampsInSeconds, nil
+}
+
+// getMaxPeak identifies clusters of timestamps (peaks) within a sequence where the differences between adjacent timestamps
+// are below a certain threshold. It returns the largest peak, the sum of differences within that peak, and an error if any.
+func getMaxPeak(timestamps []int) ([]int, int, error) {
+	if len(timestamps) < 2 {
+		return nil, 0, fmt.Errorf("insufficient timestamps")
+	}
+
+	var peaks [][]int
+	maxDifference := 15
+
+	var cluster []int
+
+	// Iterate over timestamps to identify peaks
+	for i := 0; i < len(timestamps)-1; i++ {
+		minuend, subtrahend := timestamps[i], timestamps[i+1]
+
+		// Ensure timestamps are in ascending order
+		if minuend > subtrahend {
+			peaks = append(peaks, cluster)
+			cluster = nil
+			continue
+		}
+
+		difference := int(math.Abs(float64(minuend - subtrahend)))
+
+		// Check if the difference is within the maximum allowed difference
+		if len(cluster) == 0 && difference <= maxDifference {
+			cluster = append(cluster, minuend, subtrahend)
+		} else if difference <= maxDifference {
+			cluster = append(cluster, subtrahend)
+		} else if difference > maxDifference {
+			peaks = append(peaks, cluster)
+			cluster = nil
+		}
+	}
+
+	// Identify the largest peak(s)
+	largestPeak := [][]int{peaks[0]}
+	for _, peak := range peaks[1:] {
+		if len(peak) == len(largestPeak[0]) {
+			largestPeak = append(largestPeak, peak)
+		} else if len(peak) > len(largestPeak[0]) {
+			largestPeak = nil
+			largestPeak = append(largestPeak, peak)
+		}
+	}
+
+	// In the case where there are multiple largest peaks,
+	// identify and return the largest peak with the smallest sum of differences
+	if len(largestPeak) > 1 {
+		fmt.Println("Largest Peak > 1: ", largestPeak)
+
+		// Deduplicate largest peaks in order to get accurate sum of difference
+		var largestPeakDeDuplicated [][]int
+		for _, peak := range largestPeak {
+			largestPeakDeDuplicated = append(largestPeakDeDuplicated, deduplicate(peak))
+		}
+		fmt.Println("Largest Peak deduplicated: ", largestPeakDeDuplicated)
+
+		minDifferenceSum := math.Inf(1)
+		var peakWithMinDifferenceSum []int
+		for idx, peak := range largestPeakDeDuplicated {
+			if len(peak) <= 1 {
+				continue
+			}
+
+			differenceSum := 0.0
+			for i := len(peak) - 1; i >= 1; i-- {
+				differenceSum += math.Abs(float64(peak[i] - peak[i-1]))
+			}
+			if differenceSum < minDifferenceSum {
+				minDifferenceSum = differenceSum
+				fmt.Printf("%v vs %v\n", largestPeak[idx], peak)
+				peakWithMinDifferenceSum = largestPeak[idx]
+			}
+		}
+
+		// In the case where no peak with the min difference sum was identified,
+		// probably because they were all duplicates, return the first from the largestspeaks
+		if len(peakWithMinDifferenceSum) == 0 {
+			peakWithMinDifferenceSum = largestPeak[0]
+		}
+
+		return peakWithMinDifferenceSum, int(minDifferenceSum), nil
+	}
+
+	// Otherwise, return the largest peak
+	maxPeak := largestPeak[0]
+	differenceSum := 0
+	for i := len(maxPeak) - 1; i >= 1; i-- {
+		differenceSum += maxPeak[i] - maxPeak[i-1]
+	}
+
+	return maxPeak, differenceSum, nil
+}
+
 func timeDifference(timestamps []string) ([]int, error) {
 	if len(timestamps) < 2 {
 		return nil, fmt.Errorf("insufficient timestamps")
@@ -144,17 +273,26 @@ func timeDifference(timestamps []string) ([]int, error) {
 
 	// sort.Ints(timestampsInSeconds)
 
-	differences := []int{}
+	differencesSet := map[int]struct{}{}
+	var differences []int
 
 	for i := len(timestampsInSeconds) - 1; i >= 1; i-- {
 		difference := timestampsInSeconds[i] - timestampsInSeconds[i-1]
 		// maxSeconds = 15
 		if difference > 0 && difference <= 15 {
+			differencesSet[difference] = struct{}{}
 			differences = append(differences, difference)
 		}
 	}
 
-	return differences, nil
+	differencesList := []int{}
+	if len(differencesSet) > 0 {
+		for k := range differencesSet {
+			differencesList = append(differencesList, k)
+		}
+	}
+
+	return timestampsInSeconds, nil
 }
 
 // Chunkify divides the input audio signal into chunks and calculates the Short-Time Fourier Transform (STFT) for each chunk.
@@ -204,7 +342,10 @@ func FingerprintChunks(chunks [][]complex128, chunkTag *ChunkTag) ([]int64, map[
 	if chunkTag != nil {
 		// bytesPerSecond = (samplingRate * bitDepth * channels) / 8
 		chunksPerSecond = (chunkSize - hopSize) / samplingRate
-		chunksPerSecond = 9
+		chunksPerSecond = len(chunks)
+
+		fmt.Println("CHUNKS PER SECOND: ", chunksPerSecond)
+		chunksPerSecond = 3
 		fmt.Println("CHUNKS PER SECOND: ", chunksPerSecond)
 		// if chunkSize == 4096 {
 		// 	chunksPerSecond = 10
@@ -219,7 +360,7 @@ func FingerprintChunks(chunks [][]complex128, chunkTag *ChunkTag) ([]int64, map[
 			if chunkCount == chunksPerSecond {
 				chunkCount = 0
 				chunkTime = chunkTime.Add(1 * time.Second)
-				// fmt.Println(chunkTime.Format("15:04:05"))
+				fmt.Println(chunkTime.Format("15:04:05"))
 			}
 		}
 
