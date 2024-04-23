@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Peer from "simple-peer";
 import io from "socket.io-client";
 import Form from "./components/Form";
@@ -9,6 +9,8 @@ import { FaMasksTheater, FaMicrophoneLines } from "react-icons/fa6";
 import { LiaLaptopSolid } from "react-icons/lia";
 import { ToastContainer, toast, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { MediaRecorder, register } from "extendable-media-recorder";
+import { connect } from "extendable-media-recorder-wav-encoder";
 
 // const socket = io.connect('http://localhost:5000/');
 var socket = io("http://localhost:5000/");
@@ -22,6 +24,65 @@ function App() {
   const [audioInput, setAudioInput] = useState("device");
   const [peerConnection, setPeerConnection] = useState();
   const [serverEngaged, setServerEngaged] = useState(false);
+
+  const streamRef = useRef(stream);
+  // const serverEngagedRef = useRef(serverEngaged);
+  const peerConnectionRef = useRef(peerConnection);
+
+  async function record1() {
+    const mediaDevice =
+      audioInput == "device"
+        ? navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices)
+        : navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    await register(await connect());
+
+    const stream = await mediaDevice({ audio: true });
+    const audioTracks = stream.getAudioTracks();
+    const audioStream = new MediaStream(audioTracks);
+
+    for (const track of stream.getVideoTracks()) {
+      track.stop();
+    }
+
+    const mediaRecorder = new MediaRecorder(audioStream, {
+      mimeType: "audio/wav",
+    });
+
+    const chunks = [];
+    mediaRecorder.ondataavailable = function (e) {
+      chunks.push(e.data);
+    };
+
+    mediaRecorder.addEventListener("stop", () => {
+      const blob = new Blob(chunks, { type: "audio/wav" });
+      const reader = new FileReader();
+      reader.readAsArrayBuffer(blob);
+
+      reader.onload = (event) => {
+        const arrayBuffer = event.target.result;
+
+        var binary = "";
+        var bytes = new Uint8Array(arrayBuffer);
+        var len = bytes.byteLength;
+        for (var i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+
+        // Convert byte array to base64
+        const base64data = btoa(binary);
+
+        socket.emit("blob", base64data);
+      };
+    });
+
+    mediaRecorder.start();
+
+    // Stop recording after 15 seconds
+    setTimeout(function () {
+      mediaRecorder.stop();
+    }, 15000);
+  }
 
   function record() {
     const mediaDevice =
@@ -90,9 +151,10 @@ function App() {
   }
 
   function cleanUp() {
-    if (stream != null) {
+    const currentStream = streamRef.current;
+    if (currentStream) {
       console.log("Cleaning tracks");
-      stream.getTracks().forEach((track) => track.stop());
+      currentStream.getTracks().forEach((track) => track.stop());
     }
     setStream(null);
     setisListening(false);
@@ -108,7 +170,7 @@ function App() {
 
     // Handle peer events:
     peer.on("signal", (offerData) => {
-      console.log("Setting Offer!");
+      console.log("Offer generated");
       setOffer(JSON.stringify(offerData));
       setPeerConnection(peer);
     });
@@ -125,13 +187,18 @@ function App() {
   }
 
   useEffect(() => {
+    streamRef.current = stream;
+    peerConnectionRef.current = peerConnection;
+  }, [stream, peerConnection]);
+
+  useEffect(() => {
     if (offer) {
-      console.log("Offer updated:", offer);
+      console.log("Sending Offer");
       let offerEncoded = btoa(offer);
       socket.emit("engage", offerEncoded);
 
       socket.on("serverEngaged", (answer) => {
-        console.log("ServerSDP: ", answer);
+        console.log("Received answer");
         let decodedAnswer = atob(answer);
         if (!serverEngaged && !stream && !peerConnection.destroyed) {
           peerConnection.signal(decodedAnswer);
@@ -145,6 +212,30 @@ function App() {
   useEffect(() => {
     socket.on("connect", () => {
       createPeerConnection();
+      socket.emit("totalSongs", "");
+    });
+
+    // socket.on("serverEngaged", (answer) => {
+    //   console.log("Received answer");
+
+    //   let decodedAnswer = atob(answer);
+
+    //   if (
+    //     !serverEngagedRef.current &&
+    //     !streamRef.current &&
+    //     !peerConnectionRef.current.destroyed
+    //   ) {
+    //     console.log("Adding answer");
+    //     peerConnectionRef.current.signal(decodedAnswer);
+    //   }
+
+    //   console.log("Engaged Server");
+    //   setServerEngaged(true);
+    // });
+
+    socket.on("failedToEngage", () => {
+      console.log("Server failed to engage");
+      stopListening();
     });
 
     socket.on("matches", (matches) => {
@@ -153,6 +244,7 @@ function App() {
         setMatches(matches);
         console.log("Matches: ", matches);
       } else {
+        toast("No song found.");
         console.log("No Matches");
       }
 
@@ -189,7 +281,7 @@ function App() {
   function stopListening() {
     console.log("Pause Clicked");
     cleanUp();
-    peerConnection.destroy();
+    peerConnectionRef.current.destroy();
 
     setTimeout(() => {
       createPeerConnection();
@@ -209,7 +301,6 @@ function App() {
         setisListening(true);
 
         setStream(stream);
-        stream.getVideoTracks()[0].onended = stopListening;
         stream.getAudioTracks()[0].onended = stopListening;
       })
       .catch((error) => {
@@ -243,7 +334,7 @@ function App() {
         <Listen
           stopListening={stopListening}
           disable={!serverEngaged}
-          startListening={startListening}
+          startListening={record1}
           isListening={isListening}
         />
       </div>

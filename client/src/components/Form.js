@@ -40,7 +40,7 @@ const Form = ({ socket }) => {
   return (
     <form className={styles.Form}>
       <div style={{ flexGrow: 1 }}>
-        <div>Download songs to the server</div>
+        <div>Add songs to the server</div>
         <input
           type="text"
           name="spotifyUrl"

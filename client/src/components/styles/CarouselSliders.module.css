@@ -32,9 +32,8 @@
 }
 
 .SlideItem {
-    /* height: 100%;
+    height: 100%;
     width: 100%;
-    min-width: 90%; */
     margin-left: 20px;
    flex-grow: 1;
    scroll-snap-align: center;
@@ -44,13 +43,13 @@
 .SlideItem:nth-child(2) { background-color: dodgerblue;}
 .SlideItem:nth-child(3) { background-color: greenyellow;}
 
-.iframe-youtube {
-    width: 420px;
-    height: 210px;
+.Iframe {
+    width: 500px;
+    height: 300px;
   }
 
 @media screen and (max-width: 500px) {
-    .iframe-youtube {
+    .Iframe {
         width: 420px;
         height: 200px;
     }
@@ -79,15 +78,18 @@
       }
 }
 @media screen and (max-width: 600px) {
-    .iframe-youtube {
+    .Iframe {
         width: 820px;
         height: 400px;
     }
 }
 
 @media screen and (max-width: 700px) {
-    .iframe-youtube {
+    .Iframe {
         width: 420px;
         height: 210px;
     }
+    /* .SlideItem {
+        width: 20;
+    } */
 } 
