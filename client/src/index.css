@@ -50,6 +50,7 @@ main {
 .App {
   width: 65%;
   margin: auto;
+  padding-bottom: 20px;
 }
 
 .songs {

@@ -16,6 +16,7 @@
     "react-scripts": "4.0.3",
     "react-slick": "^0.30.2",
     "react-toastify": "^8.1.0",
+    "react-youtube": "^10.1.0",
     "simple-peer": "^9.11.1",
     "slick-carousel": "^1.8.1",
     "socket.io-client": "^2.5.0",
