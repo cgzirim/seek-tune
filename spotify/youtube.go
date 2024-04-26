@@ -79,7 +79,8 @@ func convertStringDurationToSeconds(durationStr string) int {
 // GetYoutubeId takes the query as string and returns the search results video ID's
 func GetYoutubeId(track Track) (string, error) {
 	songDurationInSeconds := track.Duration
-	searchQuery := fmt.Sprintf("'%s' %s %s", track.Title, track.Artist, track.Album)
+	// searchQuery := fmt.Sprintf("'%s' %s %s", track.Title, track.Artist, track.Album)
+	searchQuery := fmt.Sprintf("'%s' %s", track.Title, track.Artist)
 
 	searchResults, err := ytSearch(searchQuery, 10)
 	if err != nil {

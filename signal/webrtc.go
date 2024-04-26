@@ -73,17 +73,17 @@ func MatchSampleAudio(track *webrtc.TrackRemote) ([]primitive.M, error) {
 	defer ticker.Stop()
 
 	var sampleAudio []byte
-	var matches []primitive.M
+	var matches []shazam.Match
 
 	for {
 		select {
 		case <-ticker.C:
 			// Process sampleAudio every 2 seconds
 			if len(sampleAudio) > 0 {
-				matchess, err := shazam.Match(sampleAudio)
+				matchess, err := shazam.FindMatches(sampleAudio)
 				matches = matchess
 				if err != nil {
-					fmt.Println(err)
+					fmt.Println("An Error: ", err)
 					return nil, nil
 				}
 
@@ -103,7 +103,12 @@ func MatchSampleAudio(track *webrtc.TrackRemote) ([]primitive.M, error) {
 		case <-stop:
 			// Stop after 15 seconds
 			fmt.Println("Stopped after 15 seconds")
-			return matches, nil
+			var matchesChunkTags []primitive.M
+			for _, match := range matches {
+				matchesChunkTags = append(matchesChunkTags, match.ChunkTag)
+			}
+			return matchesChunkTags, nil
+
 		default:
 			// Read RTP packets and accumulate sampleAudio
 			rtpPacket, _, err := track.ReadRTP()
