@@ -2,11 +2,16 @@ package shazam
 
 import (
 	"math"
-	"math/cmplx"
 )
 
-// fft performs the Fast Fourier Transform on the input signal.
-func Fft(complexArray []complex128) []complex128 {
+// Fft performs the Fast Fourier Transform on the input signal.
+func FFT(input []float64) []complex128 {
+	// Convert input to complex128
+	complexArray := make([]complex128, len(input))
+	for i, v := range input {
+		complexArray[i] = complex(v, 0)
+	}
+
 	fftResult := make([]complex128, len(complexArray))
 	copy(fftResult, complexArray) // Copy input to result buffer
 	return recursiveFFT(fftResult)
@@ -31,7 +36,7 @@ func recursiveFFT(complexArray []complex128) []complex128 {
 
 	fftResult := make([]complex128, N)
 	for k := 0; k < N/2; k++ {
-		t := cmplx.Exp(-2i * math.Pi * complex(float64(k), 0) / complex(float64(N), 0))
+		t := complex(math.Cos(-2*math.Pi*float64(k)/float64(N)), math.Sin(-2*math.Pi*float64(k)/float64(N)))
 		fftResult[k] = even[k] + t*odd[k]
 		fftResult[k+N/2] = even[k] - t*odd[k]
 	}

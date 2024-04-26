@@ -113,7 +113,7 @@ func ReadWavInfo(filename string) (*WavInfo, error) {
 }
 
 // WavBytesToFloat64 converts a slice of bytes from a .wav file to a slice of float64 samples
-func WavBytesToFloat64(input []byte) ([]float64, error) {
+func WavBytesToSamples(input []byte) ([]float64, error) {
 	if len(input)%2 != 0 {
 		return nil, errors.New("invalid input length")
 	}

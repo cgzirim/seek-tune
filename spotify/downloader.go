@@ -104,7 +104,11 @@ func dlTrack(tracks []Track, path string) (int, error) {
 			}
 
 			// check if song exists
-			songExists, _ := db.SongExists(trackCopy.Title, trackCopy.Artist, "")
+			songExists, err := db.SongExists(trackCopy.Title, trackCopy.Artist, "")
+			if err != nil {
+				logMessage := fmt.Sprintln("error checking song existence: ", err)
+				slog.Error(logMessage)
+			}
 			if songExists {
 				logMessage := fmt.Sprintf("'%s' by '%s' already downloaded\n", trackCopy.Title, trackCopy.Artist)
 				slog.Info(logMessage)
@@ -120,12 +124,19 @@ func dlTrack(tracks []Track, path string) (int, error) {
 			}
 
 			// Check if YouTube ID exists
-			ytIdExists, _ := db.SongExists("", "", ytID)
+			ytIdExists, err := db.SongExists("", "", ytID)
+			fmt.Printf("%s exists? = %v\n", ytID, ytIdExists)
+			if err != nil {
+				logMessage := fmt.Sprintln("error checking song existence: ", err)
+				slog.Error(logMessage)
+			}
+
 			if ytIdExists { // try to get the YouTube ID again
 				logMessage := fmt.Sprintf("YouTube ID exists. Trying again: %s\n", ytID)
+				fmt.Println("WARN: ", logMessage)
 				slog.Warn(logMessage)
 
-				ytID, err := GetYoutubeId(*trackCopy)
+				ytID, err = GetYoutubeId(*trackCopy)
 				if ytID == "" || err != nil {
 					logMessage := fmt.Sprintf("Error (1): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
 					slog.Info(logMessage)
@@ -133,7 +144,11 @@ func dlTrack(tracks []Track, path string) (int, error) {
 					return
 				}
 
-				ytIdExists, _ := db.SongExists("", "", ytID)
+				ytIdExists, err := db.SongExists("", "", ytID)
+				if err != nil {
+					logMessage := fmt.Sprintln("error checking song existence: ", err)
+					slog.Error(logMessage)
+				}
 				if ytIdExists {
 					logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded: YouTube ID (%s) exists\n", trackCopy.Title, trackCopy.Artist, ytID)
 					slog.Error(logMessage)
@@ -285,6 +300,11 @@ func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	}
 	defer db.Close()
 
+	err = db.RegisterSong(songTitle, songArtist, ytID)
+	if err != nil {
+		return err
+	}
+
 	audioBytes, err := convertStereoToMono(songFilePath)
 	if err != nil {
 		return fmt.Errorf("error converting song to mono: %v", err)
@@ -306,11 +326,6 @@ func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 		if err != nil {
 			return err
 		}
-	}
-
-	err = db.RegisterSong(songTitle, songArtist, ytID)
-	if err != nil {
-		return err
 	}
 
 	fmt.Println("Fingerprints saved in MongoDB successfully")

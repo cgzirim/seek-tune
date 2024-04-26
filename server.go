@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"song-recognition/shazam"
@@ -15,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pion/webrtc/v4"
-	"github.com/pion/webrtc/v4/pkg/media/oggwriter"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	socketio "github.com/googollee/go-socket.io"
 )
@@ -42,6 +41,21 @@ func GinMiddleware(allowOrigin string) gin.HandlerFunc {
 	}
 }
 
+type DownloadStatus struct {
+	Type    string
+	Message string
+}
+
+func downloadStatus(msgType, message string) string {
+	data := map[string]interface{}{"type": msgType, "message": message}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Error marshalling JSON:", err)
+		return ""
+	}
+	return string(jsonData)
+}
+
 func main() {
 	router := gin.New()
 
@@ -52,13 +66,6 @@ func main() {
 		log.Println("CONNECTED: ", socket.ID())
 
 		return nil
-	})
-
-	server.OnEvent("/", "initOffer", func(s socketio.Conn, initEncodedOffer string) {
-		log.Println("initOffer: ", initEncodedOffer)
-
-		peerConnection := signal.SetupWebRTC(initEncodedOffer)
-		s.Emit("initAnswer", signal.Encode(*peerConnection.LocalDescription()))
 	})
 
 	server.OnEvent("/", "totalSongs", func(socket socketio.Conn) {
@@ -100,41 +107,54 @@ func main() {
 			tracksInAlbum, err := spotify.AlbumInfo(spotifyURL)
 			if err != nil {
 				fmt.Println("log error: ", err)
+				if len(err.Error()) <= 25 {
+					socket.Emit("downloadStatus", downloadStatus("error", err.Error()))
+				}
 				return
 			}
 
-			socket.Emit("albumStat", fmt.Sprintf("%v songs found in album.", len(tracksInAlbum)))
+			statusMsg := fmt.Sprintf("%v songs found in album.", len(tracksInAlbum))
+			socket.Emit("downloadStatus", downloadStatus("info", statusMsg))
 
 			totalTracksDownloaded, err := spotify.DlAlbum(spotifyURL, tmpSongDir)
 			if err != nil {
-				socket.Emit("downloadStatus", fmt.Sprintf("Failed to download album."))
+				socket.Emit("downloadStatus", downloadStatus("error", "Couldn't to download album."))
 				return
 			}
 
-			socket.Emit("downloadStatus", fmt.Sprintf("%d songs downloaded from album", totalTracksDownloaded))
+			statusMsg = fmt.Sprintf("%d songs downloaded from album", totalTracksDownloaded)
+			socket.Emit("downloadStatus", downloadStatus("success", statusMsg))
 
 		} else if strings.Contains(spotifyURL, "playlist") {
 			tracksInPL, err := spotify.PlaylistInfo(spotifyURL)
 			if err != nil {
 				fmt.Println("log error: ", err)
+				if len(err.Error()) <= 25 {
+					socket.Emit("downloadStatus", downloadStatus("error", err.Error()))
+				}
 				return
 			}
 
-			socket.Emit("playlistStat", fmt.Sprintf("%v songs found in playlist.", len(tracksInPL)))
+			statusMsg := fmt.Sprintf("%v songs found in playlist.", len(tracksInPL))
+			socket.Emit("downloadStatus", downloadStatus("info", statusMsg))
 
 			totalTracksDownloaded, err := spotify.DlPlaylist(spotifyURL, tmpSongDir)
 			if err != nil {
 				fmt.Println("log errorr: ", err)
-				socket.Emit("downloadStatus", fmt.Sprintf("Failed to download playlist."))
+				socket.Emit("downloadStatus", downloadStatus("error", "Couldn't download playlist."))
 				return
 			}
 
-			socket.Emit("downloadStatus", fmt.Sprintf("%d songs downloaded from playlist", totalTracksDownloaded))
+			statusMsg = fmt.Sprintf("%d songs downloaded from playlist.", totalTracksDownloaded)
+			socket.Emit("downloadStatus", downloadStatus("success", statusMsg))
 
 		} else if strings.Contains(spotifyURL, "track") {
 			trackInfo, err := spotify.TrackInfo(spotifyURL)
 			if err != nil {
 				fmt.Println("log error: ", err)
+				if len(err.Error()) <= 25 {
+					socket.Emit("downloadStatus", downloadStatus("error", err.Error()))
+				}
 				return
 			}
 
@@ -151,22 +171,33 @@ func main() {
 			}
 
 			if chunkTag != nil {
-				socket.Emit("downloadStatus", fmt.Sprintf(
+				statusMsg := fmt.Sprintf(
 					"'%s' by '%s' already exists in the database (https://www.youtube.com/watch?v=%s)",
-					trackInfo.Title, trackInfo.Artist, chunkTag["youtubeid"]))
+					trackInfo.Title, trackInfo.Artist, chunkTag["youtubeid"])
+
+				fmt.Println("Emitting1")
+
+				socket.Emit("downloadStatus", downloadStatus("error", statusMsg))
 				return
 			}
 
 			totalDownloads, err := spotify.DlSingleTrack(spotifyURL, tmpSongDir)
 			if err != nil {
-				socket.Emit("downloadStatus", fmt.Sprintf("Failed to download '%s' by '%s'", trackInfo.Title, trackInfo.Artist))
+				statusMsg := fmt.Sprintf("Couldn't download '%s' by '%s'", trackInfo.Title, trackInfo.Artist)
+				fmt.Println("Emitting2")
+				socket.Emit("downloadStatus", downloadStatus("error", statusMsg))
 				return
 			}
 
+			statusMsg := ""
 			if totalDownloads != 1 {
-				socket.Emit("downloadStatus", fmt.Sprintf("'%s' by '%s' failed to download", trackInfo.Title, trackInfo.Artist))
+				statusMsg = fmt.Sprintf("'%s' by '%s' failed to download", trackInfo.Title, trackInfo.Artist)
+				fmt.Println("Emitting2")
+				socket.Emit("downloadStatus", downloadStatus("error", statusMsg))
 			} else {
-				socket.Emit("downloadStatus", fmt.Sprintf("'%s' by '%s' was downloaded", trackInfo.Title, trackInfo.Artist))
+				statusMsg = fmt.Sprintf("'%s' by '%s' was downloaded", trackInfo.Title, trackInfo.Artist)
+				fmt.Println("Emitting3")
+				socket.Emit("downloadStatus", downloadStatus("success", statusMsg))
 			}
 
 		} else {
@@ -184,24 +215,32 @@ func main() {
 		}
 
 		// Save the decoded data to a file
-		err = ioutil.WriteFile("recorded_audio.ogg", decodedData, 0644)
+		sampleRate := 44100
+		channels := 1
+		bitsPerSample := 16
+
+		err = utils.WriteWavFile("blob.wav", decodedData, sampleRate, channels, bitsPerSample)
 		if err != nil {
-			fmt.Println("Error: Failed to write file to disk:", err)
-			return
+			fmt.Println("Error: Failed to write wav file: ", err)
 		}
 
 		fmt.Println("Audio saved successfully.")
 
-		matches, err := shazam.Match(decodedData)
+		matches, err := shazam.FindMatches(decodedData)
 		if err != nil {
 			fmt.Println("Error: Failed to match:", err)
 			return
 		}
 
-		jsonData, err := json.Marshal(matches)
+		var matchesChunkTags []primitive.M
+		for _, match := range matches {
+			matchesChunkTags = append(matchesChunkTags, match.ChunkTag)
+		}
 
-		if len(matches) > 5 {
-			jsonData, err = json.Marshal(matches[:5])
+		jsonData, err := json.Marshal(matchesChunkTags)
+
+		if len(matchesChunkTags) > 5 {
+			jsonData, err = json.Marshal(matchesChunkTags[:5])
 		}
 
 		if err != nil {
@@ -210,39 +249,35 @@ func main() {
 		}
 
 		socket.Emit("matches", string(jsonData))
-
-		fmt.Println("BLOB: ", matches)
 	})
 
-	server.OnEvent("/", "engage", func(s socketio.Conn, encodedOffer string) {
-		log.Println("engage: ", encodedOffer)
+	server.OnEvent("/", "engage", func(socket socketio.Conn, encodedOffer string) {
+		log.Println("Offer received from client ", socket.ID())
 
 		peerConnection := signal.SetupWebRTC(encodedOffer)
 
 		// Allow us to receive 1 audio track
 		if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
-			panic(err)
-		}
-
-		// Set a handler for when a new remote track starts, this handler saves buffers to disk as
-		// an Ogg file.
-		oggFile, err := oggwriter.New("output.ogg", 48000, 1)
-		if err != nil {
+			fmt.Println("AAAAA")
 			panic(err)
 		}
 
 		peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 			codec := track.Codec()
 			if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
-				// fmt.Println("Got Opus track, saving to disk as output.opus (44.1 kHz, 1 channel)")
-				// signal.SaveToDisk(oggFile, track)
-
+				fmt.Println("Getting tracks")
 				matches, err := signal.MatchSampleAudio(track)
 				if err != nil {
-					panic(err)
+					fmt.Println("CCCCC")
+					fmt.Println("Error getting matches: ", err)
+					return
 				}
 
 				jsonData, err := json.Marshal(matches)
+				if err != nil {
+					fmt.Println("Log error: ", err)
+					return
+				}
 
 				if len(matches) > 5 {
 					jsonData, err = json.Marshal(matches[:5])
@@ -255,8 +290,8 @@ func main() {
 
 				fmt.Println(string(jsonData))
 
-				s.Emit("matches", string(jsonData))
-				peerConnection.Close()
+				socket.Emit("matches", string(jsonData))
+				// peerConnection.Close()
 			}
 		})
 
@@ -266,16 +301,17 @@ func main() {
 			fmt.Printf("Connection State has changed %s \n", connectionState.String())
 
 			if connectionState == webrtc.ICEConnectionStateConnected {
-				fmt.Println("Ctrl+C the remote client to stop the demo")
+				fmt.Println("WebRTC Connected. Client: ", socket.ID())
 			} else if connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
-				if closeErr := oggFile.Close(); closeErr != nil {
-					panic(closeErr)
-				}
 
-				fmt.Println("Done writing media files")
+				if connectionState == webrtc.ICEConnectionStateFailed {
+					fmt.Println("WebRTC connection failed. Client: ", socket.ID())
+					socket.Emit("failedToEngage", "")
+				}
 
 				// Gracefully shutdown the peer connection
 				if closeErr := peerConnection.Close(); closeErr != nil {
+					fmt.Println("Gracefully shutdown the peer connection")
 					panic(closeErr)
 				}
 
@@ -284,7 +320,7 @@ func main() {
 		})
 
 		// Emit answer in base64
-		s.Emit("serverEngaged", signal.Encode(*peerConnection.LocalDescription()))
+		socket.Emit("serverEngaged", signal.Encode(*peerConnection.LocalDescription()))
 	})
 
 	server.OnError("/", func(s socketio.Conn, e error) {
