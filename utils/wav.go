@@ -80,6 +80,7 @@ type WavInfo struct {
 	Channels   int
 	SampleRate int
 	Data       []byte
+	Duration   float64
 }
 
 func ReadWavInfo(filename string) (*WavInfo, error) {
@@ -99,17 +100,25 @@ func ReadWavInfo(filename string) (*WavInfo, error) {
 		return nil, err
 	}
 
-	// Validate header
 	if string(header.ChunkID[:]) != "RIFF" || string(header.Format[:]) != "WAVE" || header.AudioFormat != 1 {
 		return nil, errors.New("invalid WAV header format")
 	}
 
 	// Extract information
-	return &WavInfo{
+	info := &WavInfo{
 		Channels:   int(header.NumChannels),
 		SampleRate: int(header.SampleRate),
 		Data:       data[44:],
-	}, nil
+	}
+
+	// Calculate audio duration (assuming data contains PCM data)
+	if header.BitsPerSample == 16 {
+		info.Duration = float64(len(info.Data)) / float64(int(header.NumChannels)*2*int(header.SampleRate))
+	} else {
+		return nil, errors.New("unsupported bits per sample format")
+	}
+
+	return info, nil
 }
 
 // WavBytesToFloat64 converts a slice of bytes from a .wav file to a slice of float64 samples

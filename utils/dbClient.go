@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"song-recognition/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -33,6 +34,91 @@ func (db *DbClient) Close() error {
 		return db.client.Disconnect(context.Background())
 	}
 	return nil
+}
+
+func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Table) error {
+	collection := db.client.Database("song-recognition").Collection("fingerprints")
+
+	for address, table := range fingerprints {
+		// Check if the address already exists in the database
+		var existingDoc bson.M
+		err := collection.FindOne(context.Background(), bson.M{"_id": address}).Decode(&existingDoc)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				// If address doesn't exist, insert a new document
+				doc := bson.M{
+					"_id": address,
+					"tables": []interface{}{
+						bson.M{
+							"anchorTimeMs": table.AnchorTimeMs,
+							"songID":       table.SongID,
+						},
+					},
+				}
+
+				_, err := collection.InsertOne(context.Background(), doc)
+				if err != nil {
+					return fmt.Errorf("error inserting document: %s", err)
+				}
+			} else {
+				return fmt.Errorf("error checking if document exists: %s", err)
+			}
+		} else {
+			// If address exists, append the new table to the existing tables list
+
+			_, err := collection.UpdateOne(
+				context.Background(),
+				bson.M{"_id": address},
+				bson.M{"$push": bson.M{"tables": bson.M{"anchorTimeMs": table.AnchorTimeMs, "songID": table.SongID}}},
+			)
+			if err != nil {
+				return fmt.Errorf("error updating document: %s", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, error) {
+	collection := db.client.Database("song-recognition").Collection("fingerprints")
+
+	tables := make(map[uint32][]models.Table)
+
+	for _, address := range addresses {
+		// Find the document corresponding to the address
+		var result bson.M
+		err := collection.FindOne(context.Background(), bson.M{"_id": address}).Decode(&result)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				continue
+			}
+			return nil, fmt.Errorf("error retrieving document for address %d: %s", address, err)
+		}
+
+		// Extract tables from the document and append them to the tables map
+		var docTables []models.Table
+		tableArray, ok := result["tables"].(primitive.A)
+		if !ok {
+			return nil, fmt.Errorf("tables field in document for address %d is not valid", address)
+		}
+
+		for _, item := range tableArray {
+			itemMap, ok := item.(primitive.M)
+			if !ok {
+				return nil, fmt.Errorf("invalid table format in document for address %d", address)
+			}
+
+			table := models.Table{
+				AnchorTimeMs: uint32(itemMap["anchorTimeMs"].(int64)),
+				SongID:       itemMap["songID"].(string),
+			}
+			docTables = append(docTables, table)
+		}
+		tables[address] = docTables
+	}
+
+	return tables, nil
 }
 
 func (db *DbClient) TotalSongs() (int, error) {
@@ -68,7 +154,7 @@ func (db *DbClient) SongExists(songTitle, songArtist, ytID string) (bool, error)
 }
 
 func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) error {
-	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
+	existingSongsCollection := db.client.Database("song-recognition").Collection("songs")
 
 	// Create a compound unique index on ytID and key, if it doesn't already exist
 	indexModel := mongo.IndexModel{
