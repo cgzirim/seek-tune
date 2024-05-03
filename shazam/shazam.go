@@ -17,8 +17,8 @@ import (
 
 // Constants
 const (
-	chunkSize    = 4096 // 4KB
-	hopSize      = 128
+	chunkSize = 4096 // 4KB
+	// hopSize      = 128
 	fuzzFactor   = 2
 	bitDepth     = 2
 	channels     = 1
