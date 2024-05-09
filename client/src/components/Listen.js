@@ -14,7 +14,7 @@ const ListenButton = ({ isListening, onClick, disable }) => {
           : `${styles.ListenButton} ${styles.Enabled}`
       }
     >
-      {disable ? "Loading..." : isListening ? "Listening..." : "Listen"}
+      {isListening ? "Listening..." : "Listen"}
     </button>
   );
 };
