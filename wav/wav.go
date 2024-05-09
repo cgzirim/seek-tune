@@ -1,4 +1,4 @@
-package utils
+package wav
 
 import (
 	"bytes"
