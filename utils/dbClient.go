@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"song-recognition/models"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -111,7 +112,7 @@ func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, er
 
 			table := models.Table{
 				AnchorTimeMs: uint32(itemMap["anchorTimeMs"].(int64)),
-				SongID:       itemMap["songID"].(string),
+				SongID:       uint32(itemMap["songID"].(int64)),
 			}
 			docTables = append(docTables, table)
 		}
@@ -122,7 +123,7 @@ func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, er
 }
 
 func (db *DbClient) TotalSongs() (int, error) {
-	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
+	existingSongsCollection := db.client.Database("song-recognition").Collection("songs")
 	total, err := existingSongsCollection.CountDocuments(context.Background(), bson.D{})
 	if err != nil {
 		return 0, err
@@ -131,29 +132,7 @@ func (db *DbClient) TotalSongs() (int, error) {
 	return int(total), nil
 }
 
-func (db *DbClient) SongExists(songTitle, songArtist, ytID string) (bool, error) {
-	existingSongsCollection := db.client.Database("song-recognition").Collection("existing-songs")
-
-	key := fmt.Sprintf("%s - %s", songTitle, songArtist)
-	var filter bson.M
-
-	if len(ytID) == 0 {
-		filter = bson.M{"_id": key}
-	} else {
-		filter = bson.M{"ytID": ytID}
-	}
-
-	var result bson.M
-	if err := existingSongsCollection.FindOne(context.Background(), filter).Decode(&result); err == nil {
-		return true, nil
-	} else if err != mongo.ErrNoDocuments {
-		return false, fmt.Errorf("failed to retrieve registered songs: %v", err)
-	}
-
-	return false, nil
-}
-
-func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) error {
+func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) (uint32, error) {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("songs")
 
 	// Create a compound unique index on ytID and key, if it doesn't already exist
@@ -163,105 +142,110 @@ func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) error {
 	}
 	_, err := existingSongsCollection.Indexes().CreateOne(context.Background(), indexModel)
 	if err != nil {
-		return fmt.Errorf("failed to create unique index: %v", err)
+		return 0, fmt.Errorf("failed to create unique index: %v", err)
 	}
 
 	// Attempt to insert the song with ytID and key
-	key := fmt.Sprintf("%s - %s", songTitle, songArtist)
-	_, err = existingSongsCollection.InsertOne(context.Background(), bson.M{"_id": key, "ytID": ytID})
+	songID := GenerateUniqueID()
+	key := GenerateSongKey(songTitle, songArtist)
+	_, err = existingSongsCollection.InsertOne(context.Background(), bson.M{"_id": songID, "key": key, "ytID": ytID})
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return fmt.Errorf("song with ytID or key already exists: %v", err)
+			return 0, fmt.Errorf("song with ytID or key already exists: %v", err)
 		} else {
-			return fmt.Errorf("failed to register song: %v", err)
+			return 0, fmt.Errorf("failed to register song: %v", err)
 		}
+	}
+
+	return songID, nil
+}
+
+type Song struct {
+	Title     string
+	Artist    string
+	YouTubeID string
+}
+
+func (db *DbClient) GetSongByID(songID uint32) (Song, error) {
+	songsCollection := db.client.Database("song-recognition").Collection("songs")
+
+	var song bson.M
+
+	filter := bson.M{"_id": songID}
+
+	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return Song{}, fmt.Errorf("song not found")
+		}
+		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
+	}
+
+	ytID := song["ytID"].(string)
+	title := strings.Split(song["key"].(string), "---")[0]
+	artist := strings.Split(song["key"].(string), "---")[1]
+
+	songInstance := Song{title, artist, ytID}
+
+	return songInstance, nil
+}
+
+func (db *DbClient) GetSongByYTID(ytID string) (Song, error) {
+	songsCollection := db.client.Database("song-recognition").Collection("songs")
+
+	var song bson.M
+
+	filter := bson.M{"ytID": ytID}
+
+	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return Song{}, fmt.Errorf("song not found")
+		}
+		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
+	}
+
+	title := strings.Split(song["key"].(string), "---")[0]
+	artist := strings.Split(song["key"].(string), "---")[1]
+
+	songInstance := Song{title, artist, song["ytID"].(string)}
+
+	return songInstance, nil
+}
+
+func (db *DbClient) GetSongByKey(key string) (Song, error) {
+	songsCollection := db.client.Database("song-recognition").Collection("songs")
+
+	var song bson.M
+
+	filter := bson.M{"key": key}
+
+	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return Song{}, fmt.Errorf("song not found")
+		}
+		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
+	}
+
+	ytID := song["ytID"].(string)
+	title := strings.Split(song["key"].(string), "---")[0]
+	artist := strings.Split(song["key"].(string), "---")[1]
+
+	songInstance := Song{title, artist, ytID}
+
+	return songInstance, nil
+}
+
+func (db *DbClient) DeleteSongByID(songID uint32) error {
+	songsCollection := db.client.Database("song-recognition").Collection("songs")
+
+	filter := bson.M{"_id": songID}
+
+	_, err := songsCollection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		return fmt.Errorf("failed to delete song: %v", err)
 	}
 
 	return nil
-}
-
-func (db *DbClient) InsertChunkTag(chunkfgp int64, chunkTag interface{}) error {
-	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-	filter := bson.M{"fingerprint": chunkfgp}
-
-	var result bson.M
-	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
-	if err == nil {
-		// If the fingerprint already exists, append the chunkTag to the existing list
-		// fmt.Println("DUPLICATE FINGERPRINT: ", chunkfgp)
-		update := bson.M{"$push": bson.M{"chunkTags": chunkTag}}
-		_, err := chunksCollection.UpdateOne(context.Background(), filter, update)
-		if err != nil {
-			return fmt.Errorf("failed to update chunkTags: %v", err)
-		}
-		return nil
-	} else if err != mongo.ErrNoDocuments {
-		return err
-	}
-
-	// If the document doesn't exist, insert a new document
-	_, err = chunksCollection.InsertOne(context.Background(), bson.M{"fingerprint": chunkfgp, "chunkTags": []interface{}{chunkTag}})
-	if err != nil {
-		return fmt.Errorf("failed to insert chunk tag: %v", err)
-	}
-
-	return nil
-}
-
-func (db *DbClient) GetChunkTags(chunkfgp int64) ([]primitive.M, error) {
-	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-	filter := bson.M{"fingerprint": chunkfgp}
-	result := bson.M{}
-	err := chunksCollection.FindOne(context.Background(), filter).Decode(&result)
-
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to retrieve chunk tag: %w", err)
-	}
-
-	var listOfChunkTags []primitive.M
-	for _, data := range result["chunkTags"].(primitive.A) {
-		listOfChunkTags = append(listOfChunkTags, data.(primitive.M))
-	}
-
-	return listOfChunkTags, nil
-}
-
-func (db *DbClient) GetChunkTagForSong(songTitle, songArtist string) (bson.M, error) {
-	chunksCollection := db.client.Database("song-recognition").Collection("chunks")
-
-	filter := bson.M{
-		"chunkTags": bson.M{
-			"$elemMatch": bson.M{
-				"songtitle":  songTitle,
-				"songartist": songArtist,
-			},
-		},
-	}
-
-	var result bson.M
-	if err := chunksCollection.FindOne(context.Background(), filter).Decode(&result); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to find chunk: %v", err)
-	}
-
-	var chunkTag map[string]interface{}
-	for _, chunk := range result["chunkTags"].(primitive.A) {
-		chunkMap, ok := chunk.(primitive.M)
-		if !ok {
-			continue
-		}
-		if chunkMap["songtitle"] == songTitle && chunkMap["songartist"] == songArtist {
-			chunkTag = chunkMap
-			break
-		}
-	}
-
-	return chunkTag, nil
 }
