@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"song-recognition/utils"
 	"strings"
 )
 
@@ -44,6 +45,44 @@ func DeleteFile(filePath string) {
 			fmt.Println("Error deleting file:", err)
 		}
 	}
+}
+
+func SongKeyExists(key string) (bool, error) {
+	db, err := utils.NewDbClient()
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	song, err := db.GetSongByKey(key)
+	if err != nil && !strings.Contains(err.Error(), "song not found") {
+		return false, err
+	}
+
+	if song.Title == "" {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func YtIDExists(ytID string) (bool, error) {
+	db, err := utils.NewDbClient()
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	song, err := db.GetSongByYTID(ytID)
+	if err != nil && !strings.Contains(err.Error(), "song not found") {
+		return false, err
+	}
+
+	if song.Title == "" {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 /* fixes some invalid file names (windows is the capricious one) */
