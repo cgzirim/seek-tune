@@ -6,18 +6,19 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"song-recognition/shazam"
 	"song-recognition/utils"
-	"strings"
+	"song-recognition/wav"
 	"sync"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/kkdai/youtube/v2"
 )
+
+const DELETE_SONG_FILE = false
 
 var yellow = color.New(color.FgYellow)
 
@@ -104,63 +105,30 @@ func dlTrack(tracks []Track, path string) (int, error) {
 			}
 
 			// check if song exists
-			songExists, err := db.SongExists(trackCopy.Title, trackCopy.Artist, "")
+			keyExists, err := SongKeyExists(utils.GenerateSongKey(trackCopy.Title, trackCopy.Artist))
 			if err != nil {
 				logMessage := fmt.Sprintln("error checking song existence: ", err)
 				slog.Error(logMessage)
 			}
-			if songExists {
+			if keyExists {
 				logMessage := fmt.Sprintf("'%s' by '%s' already downloaded\n", trackCopy.Title, trackCopy.Artist)
 				slog.Info(logMessage)
 				return
 			}
 
-			ytID, err := GetYoutubeId(*trackCopy)
+			ytID, err := getYTID(trackCopy)
 			if ytID == "" || err != nil {
-				logMessage := fmt.Sprintf("Error (0): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
+				logMessage := fmt.Sprintf("error: '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
 				slog.Error(logMessage)
 				yellow.Printf(logMessage)
 				return
 			}
 
-			// Check if YouTube ID exists
-			ytIdExists, err := db.SongExists("", "", ytID)
-			fmt.Printf("%s exists? = %v\n", ytID, ytIdExists)
-			if err != nil {
-				logMessage := fmt.Sprintln("error checking song existence: ", err)
-				slog.Error(logMessage)
-			}
-
-			if ytIdExists { // try to get the YouTube ID again
-				logMessage := fmt.Sprintf("YouTube ID exists. Trying again: %s\n", ytID)
-				fmt.Println("WARN: ", logMessage)
-				slog.Warn(logMessage)
-
-				ytID, err = GetYoutubeId(*trackCopy)
-				if ytID == "" || err != nil {
-					logMessage := fmt.Sprintf("Error (1): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
-					slog.Info(logMessage)
-					yellow.Printf(logMessage)
-					return
-				}
-
-				ytIdExists, err := db.SongExists("", "", ytID)
-				if err != nil {
-					logMessage := fmt.Sprintln("error checking song existence: ", err)
-					slog.Error(logMessage)
-				}
-				if ytIdExists {
-					logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded: YouTube ID (%s) exists\n", trackCopy.Title, trackCopy.Artist, ytID)
-					slog.Error(logMessage)
-					return
-				}
-			}
-
 			trackCopy.Title, trackCopy.Artist = correctFilename(trackCopy.Title, trackCopy.Artist)
-			fileName := fmt.Sprintf("%s - %s.m4a", trackCopy.Title, trackCopy.Artist)
-			filePath := filepath.Join(path, fileName)
+			fileName := fmt.Sprintf("%s - %s", trackCopy.Title, trackCopy.Artist)
+			filePath := filepath.Join(path, fileName+".m4a")
 
-			err = getAudio(ytID, path, filePath)
+			err = downloadYTaudio(ytID, path, filePath)
 			if err != nil {
 				logMessage := fmt.Sprintf("Error (2): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
 				yellow.Printf(logMessage)
@@ -176,15 +144,14 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				return
 			}
 
-			// Consider removing this and deleting the song file after processing
-			if err := addTags(filePath, *trackCopy); err != nil {
-				yellow.Println("Error adding tags: ", filePath)
-				return
-			}
-
-			size, _ := GetFileSize(filePath)
-			if size < 1 {
-				DeleteFile(filePath)
+			if DELETE_SONG_FILE != true {
+				size, _ := GetFileSize(filePath)
+				if size < 1 {
+					DeleteFile(filePath)
+				}
+			} else {
+				DeleteFile(filepath.Join(path, fileName+".m4a"))
+				DeleteFile(filepath.Join(path, fileName+".wav"))
 			}
 
 			fmt.Printf("'%s' by '%s' was downloaded\n", track.Title, track.Artist)
@@ -208,7 +175,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 }
 
 /* github.com/kkdai/youtube */
-func getAudio(id, path, filePath string) error {
+func downloadYTaudio(id, path, filePath string) error {
 	dir, err := os.Stat(path)
 	if err != nil {
 		panic(err)
@@ -224,8 +191,11 @@ func getAudio(id, path, filePath string) error {
 		return err
 	}
 
-	/* itag code: 140, container: m4a, content: audio, bitrate: 128k */
-	/* change the FindByItag parameter to 139 if you want smaller files (but with a bitrate of 48k) */
+	/*
+		itag code: 140, container: m4a, content: audio, bitrate: 128k
+		change the FindByItag parameter to 139 if you want smaller files (but with a bitrate of 48k)
+		https://gist.github.com/sidneys/7095afe4da4ae58694d128b1034e01e2
+	*/
 	formats := video.Formats.Itag(140)
 
 	/* in some cases, when attempting to download the audio
@@ -255,44 +225,6 @@ func getAudio(id, path, filePath string) error {
 	return nil
 }
 
-func addTags(file string, track Track) error {
-	tempFile := file
-	index := strings.Index(file, ".m4a")
-	if index != -1 {
-		result := tempFile[:index]       /* filename but with no extension ('/path/to/title - artist') */
-		tempFile = result + "2" + ".m4a" /* just a temporary dumb name ('/path/to/title - artist2.m4a') */
-	}
-
-	cmd := exec.Command(
-		"ffmpeg",
-		"-i", file, /* /path/to/title - artist.m4a */
-		"-c", "copy",
-		"-metadata", fmt.Sprintf("album_artist=%s", track.Artist),
-		"-metadata", fmt.Sprintf("title=%s", track.Title),
-		"-metadata", fmt.Sprintf("artist=%s", track.Artist),
-		"-metadata", fmt.Sprintf("album=%s", track.Album),
-		tempFile, /* /path/to/title - artist2.m4a */
-	)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println("ERROR FROM CMD:", err)
-		fmt.Println("FFMPEG Output:", string(out))
-		return err
-	}
-	// if err := cmd.Run(); err != nil {
-	// 	fmt.Println("ERROR FROM CMD: ", err)
-	// 	return err
-	// }
-
-	/* removes '2' from file name */
-	if err := os.Rename(tempFile, file); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
 	db, err := utils.NewDbClient()
 	if err != nil {
@@ -300,34 +232,75 @@ func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	}
 	defer db.Close()
 
-	err = db.RegisterSong(songTitle, songArtist, ytID)
+	wavFilePath, err := wav.ConvertToWAV(songFilePath, 1)
 	if err != nil {
 		return err
 	}
 
-	audioBytes, err := convertStereoToMono(songFilePath)
+	wavInfo, err := wav.ReadWavInfo(wavFilePath)
 	if err != nil {
-		return fmt.Errorf("error converting song to mono: %v", err)
+		return err
 	}
 
-	chunkTag := shazam.ChunkTag{
-		SongTitle:  songTitle,
-		SongArtist: songArtist,
-		YouTubeID:  ytID,
+	samples, err := wav.WavBytesToSamples(wavInfo.Data)
+	if err != nil {
+		return fmt.Errorf("error converting wav bytes to float64: %v", err)
 	}
 
-	// Fingerprint song
-	chunks := shazam.Chunkify(audioBytes)
-	_, fingerprints := shazam.FingerprintChunks(chunks, &chunkTag)
+	spectro, err := shazam.Spectrogram(samples, wavInfo.SampleRate)
+	if err != nil {
+		return fmt.Errorf("error creating spectrogram: %v", err)
+	}
 
-	// Save fingerprints in DB
-	for fgp, ctag := range fingerprints {
-		err := db.InsertChunkTag(fgp, ctag)
-		if err != nil {
-			return err
-		}
+	songID, err := db.RegisterSong(songTitle, songArtist, ytID)
+	if err != nil {
+		return err
+	}
+
+	peaks := shazam.ExtractPeaks(spectro, wavInfo.Duration)
+	fingerprints := shazam.Fingerprint(peaks, songID)
+
+	err = db.StoreFingerprints(fingerprints)
+	if err != nil {
+		db.DeleteSongByID(songID)
+		return fmt.Errorf("error to storing fingerpring: %v", err)
 	}
 
 	fmt.Println("Fingerprints saved in MongoDB successfully")
 	return nil
+}
+
+func getYTID(trackCopy *Track) (string, error) {
+	ytID, err := GetYoutubeId(*trackCopy)
+	if ytID == "" || err != nil {
+		return "", err
+	}
+
+	// Check if YouTube ID exists
+	ytidExists, err := YtIDExists(ytID)
+	if err != nil {
+		return "", fmt.Errorf("error checking YT ID existence: %v", err)
+	}
+
+	if ytidExists { // try to get the YouTube ID again
+		logMessage := fmt.Sprintf("YouTube ID (%s) exists. Trying again...\n", ytID)
+		fmt.Println("WARN: ", logMessage)
+		slog.Warn(logMessage)
+
+		ytID, err = GetYoutubeId(*trackCopy)
+		if ytID == "" || err != nil {
+			return "", err
+		}
+
+		ytidExists, err = YtIDExists(ytID)
+		if err != nil {
+			return "", fmt.Errorf("error checking YT ID existence: %v", err)
+		}
+
+		if ytidExists {
+			return "", fmt.Errorf("youTube ID (%s) exists", ytID)
+		}
+	}
+
+	return ytID, nil
 }
