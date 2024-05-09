@@ -4,7 +4,7 @@ Form {
     margin-bottom: 30px;
     display: flex;
     gap: 12px;
-    align-items: end;
+    align-items: flex-end;
     justify-content: center;
   }
   
@@ -14,7 +14,7 @@ Form {
       margin: auto;
       display: flex;
       gap: 12px;
-      align-items: end;
+      align-items: flex-end;
       justify-content: center;
     }
   }

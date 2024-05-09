@@ -1,15 +1,16 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import YouTube from "react-youtube";
 import styles from "./styles/CarouselSliders.module.css";
 
 const CarouselSliders = (props) => {
-  const [activeIdx, setActiveIdx] = React.useState(0);
+  const [activeVideoID, setActiveVideoID] = React.useState(null);
   const players = useRef({});
 
-  const opts = {
-    // width: "420",
-    // height: "210",
-  };
+  const activeVid = props.matches.length ? props.matches[0].YouTubeID : "";
+
+  useEffect(() => {
+    setActiveVideoID(activeVid);
+  }, [props.matches]);
 
   const onReady = (event, videoId) => {
     players.current[videoId] = event.target;
@@ -17,6 +18,8 @@ const CarouselSliders = (props) => {
 
   const onPlay = (event) => {
     const videoId = event.target.getVideoData().video_id;
+    setActiveVideoID(videoId);
+
     // Pause other videos
     Object.values(players.current).forEach((player) => {
       const otherVideoId = player.getVideoData().video_id;
@@ -35,24 +38,21 @@ const CarouselSliders = (props) => {
         {!props.matches.length ? null : (
           <div className={styles.Slider}>
             {props.matches.map((match, index) => {
-              const [h, m, s] = match.timestamp.split(":");
-              const timestamp =
-                parseInt(h, 10) * 360 + parseInt(m, 10) * 60 + parseInt(s, 10);
+              const start = (parseInt(match.Timestamp) / 1000) | 0;
 
               return (
                 <div
                   key={index}
-                  id={`slide-${index}`}
+                  id={`slide-${match.YouTubeID}`}
                   className={styles.SlideItem}
                 >
                   <YouTube
-                    videoId={match.youtubeid}
+                    videoId={match.YouTubeID}
                     opts={{
-                      ...opts,
-                      playerVars: { start: timestamp, rel: 0 },
+                      playerVars: { start: start, rel: 0 },
                     }}
                     iframeClassName={styles.Iframe}
-                    onReady={(event) => onReady(event, match.youtubeid)}
+                    onReady={(event) => onReady(event, match.YouTubeID)}
                     onPlay={onPlay}
                   />
                 </div>
@@ -62,18 +62,18 @@ const CarouselSliders = (props) => {
         )}
 
         <div className={styles.Circles}>
-          {props.matches.map((_, index) => {
+          {props.matches.map((match, _) => {
             return (
               <a
-                key={index}
+                key={match.YouTubeID}
                 className={
-                  index !== activeIdx
+                  match.YouTubeID !== activeVideoID
                     ? styles.Link
                     : `${styles.Link} ${styles.ActiveLink}`
                 }
-                href={`#slide-${index}`}
+                href={`#slide-${match.YouTubeID}`}
                 onClick={() => {
-                  setActiveIdx(index);
+                  setActiveVideoID(match.YouTubeID);
                 }}
               ></a>
             );

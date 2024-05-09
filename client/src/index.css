@@ -48,9 +48,22 @@ main {
 }
 
 .App {
-  width: 65%;
+  width: 55%;
   margin: auto;
   padding-bottom: 20px;
+}
+
+.TopHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+@media screen and (max-width: 600px) {
+  .App {
+    width: 80%;
+  }
 }
 
 .songs {

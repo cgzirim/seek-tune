@@ -17,13 +17,11 @@ const Form = ({ socket }) => {
     }
 
     socket.emit("newDownload", spotifyUrl);
-    console.log("newDownload: ", spotifyUrl);
     setFormState(initialState);
   };
 
   const spotifyURLisValid = (url) => {
     if (url.length === 0) {
-      console.log("Spotify URL required");
       return false;
     }
 
