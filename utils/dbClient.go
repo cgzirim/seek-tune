@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"song-recognition/models"
 	"strings"
@@ -166,9 +167,14 @@ type Song struct {
 	YouTubeID string
 }
 
-func (db *DbClient) GetSong(filterKey string, value any) (Song, error) {
-	songsCollection := db.client.Database("song-recognition").Collection("songs")
+const FILTER_KEYS = "_id | ytID | key"
 
+func (db *DbClient) GetSong(filterKey string, value interface{}) (s Song, songExists bool, e error) {
+	if !strings.Contains(FILTER_KEYS, filterKey) {
+		return Song{}, false, errors.New("invalid filter key")
+	}
+
+	songsCollection := db.client.Database("song-recognition").Collection("songs")
 	var song bson.M
 
 	filter := bson.M{filterKey: value}
@@ -176,9 +182,9 @@ func (db *DbClient) GetSong(filterKey string, value any) (Song, error) {
 	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return Song{}, fmt.Errorf("song (%v: %v) not found", filterKey, value)
+			return Song{}, false, nil
 		}
-		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
+		return Song{}, false, fmt.Errorf("failed to retrieve song: %v", err)
 	}
 
 	ytID := song["ytID"].(string)
@@ -187,18 +193,18 @@ func (db *DbClient) GetSong(filterKey string, value any) (Song, error) {
 
 	songInstance := Song{title, artist, ytID}
 
-	return songInstance, nil
+	return songInstance, true, nil
 }
 
-func (db *DbClient) GetSongByID(songID uint32) (Song, error) {
+func (db *DbClient) GetSongByID(songID uint32) (Song, bool, error) {
 	return db.GetSong("_id", songID)
 }
 
-func (db *DbClient) GetSongByYTID(ytID string) (Song, error) {
+func (db *DbClient) GetSongByYTID(ytID string) (Song, bool, error) {
 	return db.GetSong("ytID", ytID)
 }
 
-func (db *DbClient) GetSongByKey(key string) (Song, error) {
+func (db *DbClient) GetSongByKey(key string) (Song, bool, error) {
 	return db.GetSong("key", key)
 }
 

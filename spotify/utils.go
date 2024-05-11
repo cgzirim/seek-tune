@@ -54,16 +54,12 @@ func SongKeyExists(key string) (bool, error) {
 	}
 	defer db.Close()
 
-	song, err := db.GetSongByKey(key)
-	if err != nil && !strings.Contains(err.Error(), "song not found") {
+	_, songExists, err := db.GetSongByKey(key)
+	if err != nil {
 		return false, err
 	}
 
-	if song.Title == "" {
-		return false, nil
-	}
-
-	return true, nil
+	return songExists, nil
 }
 
 func YtIDExists(ytID string) (bool, error) {
@@ -73,16 +69,12 @@ func YtIDExists(ytID string) (bool, error) {
 	}
 	defer db.Close()
 
-	song, err := db.GetSongByYTID(ytID)
-	if err != nil && !strings.Contains(err.Error(), "song not found") {
+	_, songExits, err := db.GetSongByYTID(ytID)
+	if err != nil {
 		return false, err
 	}
 
-	if song.Title == "" {
-		return false, nil
-	}
-
-	return true, nil
+	return songExits, nil
 }
 
 /* fixes some invalid file names (windows is the capricious one) */
