@@ -166,17 +166,17 @@ type Song struct {
 	YouTubeID string
 }
 
-func (db *DbClient) GetSongByID(songID uint32) (Song, error) {
+func (db *DbClient) GetSong(filterKey string, value any) (Song, error) {
 	songsCollection := db.client.Database("song-recognition").Collection("songs")
 
 	var song bson.M
 
-	filter := bson.M{"_id": songID}
+	filter := bson.M{filterKey: value}
 
 	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return Song{}, fmt.Errorf("song not found")
+			return Song{}, fmt.Errorf("song (%v: %v) not found", filterKey, value)
 		}
 		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
 	}
@@ -188,53 +188,18 @@ func (db *DbClient) GetSongByID(songID uint32) (Song, error) {
 	songInstance := Song{title, artist, ytID}
 
 	return songInstance, nil
+}
+
+func (db *DbClient) GetSongByID(songID uint32) (Song, error) {
+	return db.GetSong("_id", songID)
 }
 
 func (db *DbClient) GetSongByYTID(ytID string) (Song, error) {
-	songsCollection := db.client.Database("song-recognition").Collection("songs")
-
-	var song bson.M
-
-	filter := bson.M{"ytID": ytID}
-
-	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return Song{}, fmt.Errorf("song not found")
-		}
-		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
-	}
-
-	title := strings.Split(song["key"].(string), "---")[0]
-	artist := strings.Split(song["key"].(string), "---")[1]
-
-	songInstance := Song{title, artist, song["ytID"].(string)}
-
-	return songInstance, nil
+	return db.GetSong("ytID", ytID)
 }
 
 func (db *DbClient) GetSongByKey(key string) (Song, error) {
-	songsCollection := db.client.Database("song-recognition").Collection("songs")
-
-	var song bson.M
-
-	filter := bson.M{"key": key}
-
-	err := songsCollection.FindOne(context.Background(), filter).Decode(&song)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return Song{}, fmt.Errorf("song not found")
-		}
-		return Song{}, fmt.Errorf("failed to retrieve song: %v", err)
-	}
-
-	ytID := song["ytID"].(string)
-	title := strings.Split(song["key"].(string), "---")[0]
-	artist := strings.Split(song["key"].(string), "---")[1]
-
-	songInstance := Song{title, artist, ytID}
-
-	return songInstance, nil
+	return db.GetSong("key", key)
 }
 
 func (db *DbClient) DeleteSongByID(songID uint32) error {
