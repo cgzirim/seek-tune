@@ -1,7 +1,6 @@
 package shazam
 
 import (
-	"fmt"
 	"song-recognition/models"
 )
 
@@ -17,9 +16,8 @@ const (
 // The address is calculated based on the frequency of the anchor and target points,
 // as well as the delta time between them.
 // The table value contains the anchor time and the song ID.
-func Fingerprint(peaks []Peak, songID string) map[uint32]models.Table {
-	fingerprints := map[uint32]models.Table{}
-	duplicates := 0
+func Fingerprint(peaks []Peak, songID uint32) map[uint32]models.Couple {
+	fingerprints := map[uint32]models.Couple{}
 
 	for i, anchor := range peaks {
 		for j := i + 1; j < len(peaks) && j <= i+targetZoneSize; j++ {
@@ -28,16 +26,9 @@ func Fingerprint(peaks []Peak, songID string) map[uint32]models.Table {
 			address := createAddress(anchor, target)
 
 			anchorTimeMs := uint32(anchor.Time * 1000)
-
-			_, ok := fingerprints[address]
-			if ok {
-				duplicates++
-			}
-			fingerprints[address] = models.Table{anchorTimeMs, songID}
+			fingerprints[address] = models.Couple{anchorTimeMs, songID}
 		}
 	}
-
-	fmt.Println("Duplicates: ", duplicates)
 
 	return fingerprints
 }
@@ -45,7 +36,7 @@ func Fingerprint(peaks []Peak, songID string) map[uint32]models.Table {
 // createAddress generates a unique address for a pair of anchor and target points.
 // The address is a 32-bit integer where certain bits represent the frequency of
 // the anchor and target points, and other bits represent the time difference (delta time)
-// between them. This function combines these components into a single address.
+// between them. This function combines these components into a single address (a hash).
 func createAddress(anchor, target Peak) uint32 {
 	anchorFreq := int(real(anchor.Freq))
 	targetFreq := int(real(target.Freq))
