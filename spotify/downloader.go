@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/kkdai/youtube/v2"
+	"github.com/mdobak/go-xerrors"
 )
 
 const DELETE_SONG_FILE = false
@@ -77,9 +79,12 @@ func dlTrack(tracks []Track, path string) (int, error) {
 	var wg sync.WaitGroup
 	var downloadedTracks []string
 	var totalTracks int
+	logger := utils.GetLogger()
 	results := make(chan int, len(tracks))
 	numCPUs := runtime.NumCPU()
 	semaphore := make(chan struct{}, numCPUs)
+
+	ctx := context.Background()
 
 	db, err := utils.NewDbClient()
 	if err != nil {
@@ -107,20 +112,19 @@ func dlTrack(tracks []Track, path string) (int, error) {
 			// check if song exists
 			keyExists, err := SongKeyExists(utils.GenerateSongKey(trackCopy.Title, trackCopy.Artist))
 			if err != nil {
-				logMessage := fmt.Sprintln("error checking song existence: ", err)
-				slog.Error(logMessage)
+				err := xerrors.New(err)
+				logger.ErrorContext(ctx, "error checking song existence", slog.Any("error", err))
 			}
 			if keyExists {
-				logMessage := fmt.Sprintf("'%s' by '%s' already downloaded\n", trackCopy.Title, trackCopy.Artist)
-				slog.Info(logMessage)
+				logMessage := fmt.Sprintf("'%s' by '%s' already exits.", trackCopy.Title, trackCopy.Artist)
+				logger.Info(logMessage)
 				return
 			}
 
 			ytID, err := getYTID(trackCopy)
 			if ytID == "" || err != nil {
-				logMessage := fmt.Sprintf("error: '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
-				slog.Error(logMessage)
-				yellow.Printf(logMessage)
+				logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded", trackCopy.Title, trackCopy.Artist)
+				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
 				return
 			}
 
@@ -130,26 +134,19 @@ func dlTrack(tracks []Track, path string) (int, error) {
 
 			err = downloadYTaudio(ytID, path, filePath)
 			if err != nil {
-				logMessage := fmt.Sprintf("Error (2): '%s' by '%s' could not be downloaded: %s\n", trackCopy.Title, trackCopy.Artist, err)
-				yellow.Printf(logMessage)
-				slog.Error(logMessage)
+				logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded", trackCopy.Title, trackCopy.Artist)
+				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
 				return
 			}
 
 			err = processAndSaveSong(filePath, trackCopy.Title, trackCopy.Artist, ytID)
 			if err != nil {
-				yellow.Println("Error processing audio: ", err)
-				logMessage := fmt.Sprintf("Failed to process song ('%s' by '%s'): %s\n", trackCopy.Title, trackCopy.Artist, err)
-				slog.Error(logMessage)
+				logMessage := fmt.Sprintf("Failed to process song ('%s' by '%s')", trackCopy.Title, trackCopy.Artist)
+				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
 				return
 			}
 
-			if DELETE_SONG_FILE != true {
-				size, _ := GetFileSize(filePath)
-				if size < 1 {
-					DeleteFile(filePath)
-				}
-			} else {
+			if DELETE_SONG_FILE {
 				DeleteFile(filepath.Join(path, fileName+".m4a"))
 				DeleteFile(filepath.Join(path, fileName+".wav"))
 			}
