@@ -1,46 +1,38 @@
 package shazam
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"math"
-	"math/cmplx"
-	"math/rand"
+	"song-recognition/models"
 	"song-recognition/utils"
 	"sort"
-	"time"
-
-	"github.com/mjibson/go-dsp/fft"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// Constants
-const (
-	chunkSize = 4096 // 4KB
-	// hopSize      = 128
-	fuzzFactor   = 2
-	bitDepth     = 2
-	channels     = 1
-	samplingRate = 44100
-)
-
-type ChunkTag struct {
+type Match struct {
+	SongID     uint32
 	SongTitle  string
 	SongArtist string
 	YouTubeID  string
-	TimeStamp  string
+	Timestamp  uint32
+	Score      float64
 }
 
-type Match struct {
-	songKey       string
-	ChunkTag      primitive.M
-	WeightedScore float64
-}
+func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) ([]Match, error) {
+	logger := utils.GetLogger()
 
-func FindMatches(sampleAudio []byte) ([]Match, error) {
-	sampleChunks := Chunkify(sampleAudio)
-	chunkFingerprints, _ := FingerprintChunks(sampleChunks, nil)
+	spectrogram, err := Spectrogram(audioSamples, sampleRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get spectrogram of samples: %v", err)
+	}
+
+	peaks := ExtractPeaks(spectrogram, audioDuration)
+	fingerprints := Fingerprint(peaks, utils.GenerateUniqueID())
+	fmt.Println("peaks len: ", len(peaks))
+
+	addresses := make([]uint32, 0, len(fingerprints))
+	for address, _ := range fingerprints {
+		addresses = append(addresses, address)
+	}
 
 	db, err := utils.NewDbClient()
 	if err != nil {
@@ -48,376 +40,120 @@ func FindMatches(sampleAudio []byte) ([]Match, error) {
 	}
 	defer db.Close()
 
-	var chunkTags = make(map[string]primitive.M)
-	var songsTimestamps = make(map[string][]string)
-	for _, chunkfgp := range chunkFingerprints {
-		listOfChunkTags, err := db.GetChunkTags(chunkfgp)
-		if err != nil {
-			return nil, err
-		}
+	m, err := db.GetCouples(addresses)
+	if err != nil {
+		return nil, err
+	}
 
-		for _, chunkTag := range listOfChunkTags {
-			timeStamp := fmt.Sprint(chunkTag["timestamp"])
-			songKey := fmt.Sprintf("%s by %s", chunkTag["songtitle"], chunkTag["songartist"])
+	matches := map[uint32]map[uint32]models.Couple{}
+	timestamps := map[uint32]uint32{}
 
-			if songsTimestamps[songKey] == nil {
-				songsTimestamps[songKey] = []string{timeStamp}
-				chunkTags[songKey] = chunkTag
-			} else {
-				songsTimestamps[songKey] = append(songsTimestamps[songKey], timeStamp)
+	for address, couples := range m {
+		for _, couple := range couples {
+
+			if _, ok := matches[couple.SongID]; !ok {
+				matches[couple.SongID] = map[uint32]models.Couple{}
+				timestamps[couple.SongID] = couple.AnchorTimeMs
 			}
+
+			matches[couple.SongID][address] = couple
 		}
 	}
 
-	var matches []Match
-	for songKey, timestamps := range songsTimestamps {
-		timestampsInSeconds, err := timestampsInSeconds(timestamps)
+	scores := map[uint32]float64{}
+	for songID, couples := range matches {
+		song, songExists, err := db.GetSongByID(songID)
+		if err != nil || !songExists {
+			// log error
+			fmt.Println("Continuing")
+			continue
+		}
+		fmt.Printf("Song: %v, Scores:\n", song.Title)
+
+		scores[songID] = matchScore(fingerprints, couples)
+		fmt.Println("------------------------------------")
+	}
+
+	var matchList []Match
+	for songID, points := range scores {
+		song, songExists, err := db.GetSongByID(songID)
+		if !songExists {
+			logger.Info(fmt.Sprintf("song with ID (%v) doesn't exist", songID))
+			continue
+		}
 		if err != nil {
-			return nil, err
-		}
-
-		maxPeak, differenceSum, err := getMaxPeak(timestampsInSeconds)
-		if err != nil {
-			if err.Error() == "insufficient timestamps" || err.Error() == "no peak was identified" {
-				continue
-			} else {
-				return nil, err
-			}
-		}
-
-		weightedScore := float64(differenceSum) / float64(len(maxPeak))
-		matches = append(matches, Match{songKey, chunkTags[songKey], weightedScore})
-
-		fmt.Printf("%s MaxPeak: %v, DifferenceSum: %d\n", songKey, maxPeak, differenceSum)
-		fmt.Println("=====================================================\n")
-	}
-
-	sort.Slice(matches, func(i, j int) bool {
-		return matches[i].WeightedScore < matches[j].WeightedScore
-	})
-
-	display := make(map[string]float64)
-	for _, match := range matches {
-		key := match.songKey
-		display[key] = match.WeightedScore
-	}
-
-	fmt.Println("New Matches: ", display)
-	fmt.Println("Matches: ", matches)
-	return matches, nil
-}
-
-func sortMatchesByTimeDifference(matches map[string][]int, chunkTags map[string]primitive.M) []primitive.M {
-	type songDifferences struct {
-		songKey     string
-		differences []int
-		sum         int
-	}
-
-	var kvPairs []songDifferences
-	for songKey, differences := range matches {
-		sum := 0
-		for _, difference := range differences {
-			sum += difference
-		}
-		kvPairs = append(kvPairs, songDifferences{songKey, differences, sum})
-	}
-
-	sort.Slice(kvPairs, func(i, j int) bool {
-		return kvPairs[i].sum > kvPairs[j].sum
-	})
-
-	var sortedChunkTags []primitive.M
-	for _, pair := range kvPairs {
-		sortedChunkTags = append(sortedChunkTags, chunkTags[pair.songKey])
-	}
-
-	return sortedChunkTags
-}
-
-func timestampsInSeconds(timestamps []string) ([]int, error) {
-	layout := "15:04:05"
-
-	timestampsInSeconds := make([]int, len(timestamps))
-	for i, ts := range timestamps {
-		parsedTime, err := time.Parse(layout, ts)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing timestamp %q: %w", ts, err)
-		}
-		hours := parsedTime.Hour()
-		minutes := parsedTime.Minute()
-		seconds := parsedTime.Second()
-		timestampsInSeconds[i] = (hours * 3600) + (minutes * 60) + seconds
-	}
-
-	return timestampsInSeconds, nil
-}
-
-// getMaxPeak identifies clusters of timestamps (peaks) within a sequence where the differences between adjacent timestamps
-// are below a certain threshold. It returns the largest peak, the sum of differences within that peak, and an error if any.
-func getMaxPeak(timestamps []int) ([]int, int, error) {
-	if len(timestamps) < 2 {
-		return nil, 0, fmt.Errorf("insufficient timestamps")
-	}
-
-	var peaks [][]int
-	maxDifference := 15
-
-	var cluster []int
-
-	// Iterate over timestamps to identify peaks
-	for i := 0; i < len(timestamps)-1; i++ {
-		minuend, subtrahend := timestamps[i], timestamps[i+1]
-
-		// Ensure timestamps are in ascending order
-		if minuend > subtrahend {
-			if len(cluster) > 0 {
-				peaks = append(peaks, cluster)
-				cluster = nil
-			}
+			logger.Info(fmt.Sprintf("failed to get song by ID (%v): %v", songID, err))
 			continue
 		}
 
-		difference := int(math.Abs(float64(minuend - subtrahend)))
-
-		// Check if the difference is within the maximum allowed difference
-		if len(cluster) == 0 && difference <= maxDifference {
-			cluster = append(cluster, minuend, subtrahend)
-		} else if difference <= maxDifference {
-			cluster = append(cluster, subtrahend)
-		} else if difference > maxDifference {
-			if len(cluster) > 0 {
-				peaks = append(peaks, cluster)
-				cluster = nil
-			}
-		}
+		fmt.Printf("Song: %v, Score: %v\n", song.Title, points)
+		fmt.Println("====================================")
+		match := Match{songID, song.Title, song.Artist, song.YouTubeID, timestamps[songID], points}
+		matchList = append(matchList, match)
 	}
 
-	if len(peaks) < 1 {
-		return nil, 0, fmt.Errorf("no peak was identified")
-	}
+	sort.Slice(matchList, func(i, j int) bool {
+		return matchList[i].Score > matchList[j].Score
+	})
 
-	// Identify the largest peak(s)
-	largestPeak := [][]int{peaks[0]}
-	for _, peak := range peaks[1:] {
-		if len(peak) == len(largestPeak[0]) {
-			largestPeak = append(largestPeak, peak)
-		} else if len(peak) > len(largestPeak[0]) {
-			largestPeak = nil
-			largestPeak = append(largestPeak, peak)
-		}
-	}
-
-	// In the case where there are multiple largest peaks,
-	// identify and return the largest peak with the smallest sum of differences
-	if len(largestPeak) > 1 {
-		fmt.Println("Largest Peak > 1: ", largestPeak)
-
-		// Deduplicate largest peaks to get accurate result.
-		// How? Consider two peaks: A: [53, 53, 53] and B: [14, 15].
-		// Peak A has only one unique value (53) repeated three times, while peak B has two unique values (14 and 15).
-		// In this case, peak B would be prioritized over peak A
-		var largestPeakDeduplicated [][]int
-		for _, peak := range largestPeak {
-			largestPeakDeduplicated = append(largestPeakDeduplicated, deduplicate(peak))
-		}
-		fmt.Println("Largest Peak deduplicated: ", largestPeakDeduplicated)
-
-		minDifferenceSum := math.Inf(1)
-		var peakWithMinDifferenceSum []int
-		for idx, peak := range largestPeakDeduplicated {
-			if len(peak) <= 1 {
-				continue
-			}
-
-			differenceSum := 0.0
-			for i := len(peak) - 1; i >= 1; i-- {
-				differenceSum += math.Abs(float64(peak[i] - peak[i-1]))
-			}
-			if differenceSum < minDifferenceSum {
-				minDifferenceSum = differenceSum
-				peakWithMinDifferenceSum = largestPeak[idx]
-			}
-		}
-
-		// In the case where no peak with the min difference sum was identified,
-		// probably because they are all duplicates, return the first from the largestspeaks
-		if len(peakWithMinDifferenceSum) == 0 {
-			peakWithMinDifferenceSum = largestPeak[0]
-			minDifferenceSum = 0
-		}
-
-		return peakWithMinDifferenceSum, int(minDifferenceSum), nil
-	}
-
-	// Otherwise, return the largest peak
-	maxPeak := largestPeak[0]
-	differenceSum := 0
-	for i := len(maxPeak) - 1; i >= 1; i-- {
-		differenceSum += maxPeak[i] - maxPeak[i-1]
-	}
-
-	return maxPeak, differenceSum, nil
+	fmt.Println("MatchList len: ", len(matchList))
+	return matchList, nil
 }
 
-// Chunkify divides the input audio signal into chunks and calculates the Short-Time Fourier Transform (STFT) for each chunk.
-// The function returns a 2D slice containing the STFT coefficients for each chunk.
-func Chunkify(audio []byte) [][]complex128 {
-	numWindows := len(audio) / (chunkSize - hopSize)
-	chunks := make([][]complex128, numWindows)
-
-	// Apply Hamming window function
-	window := make([]float64, chunkSize)
-	for i := range window {
-		window[i] = 0.54 - 0.46*math.Cos(2*math.Pi*float64(i)/float64(chunkSize-1))
-	}
-
-	// Perform STFT
-	for i := 0; i < numWindows; i++ {
-		// Extract current chunk
-		start := i * hopSize
-		end := start + chunkSize
-		if end > len(audio) {
-			end = len(audio)
+// MatchScore computes a match score between the two transformed audio samples (into a list of Key + TableValue)
+func matchScore(sample, match map[uint32]models.Couple) float64 {
+	// Will hold a list of points (time in the sample sound file, time in the matched database sound file)
+	points := [2][]float64{}
+	matches := 0.0
+	for k, sampleValue := range sample {
+		if matchValue, ok := match[k]; ok {
+			points[0] = append(points[0], float64(sampleValue.AnchorTimeMs))
+			points[1] = append(points[1], float64(matchValue.AnchorTimeMs))
+			matches++
 		}
-
-		chunk := make([]complex128, chunkSize)
-		for j := start; j < end; j++ {
-			chunk[j-start] = complex(float64(audio[j])*window[j-start], 0)
-		}
-
-		// Compute FFT
-		// chunks[i] = Fft(chunk)
-		chunks[i] = fft.FFT(chunk)
 	}
-
-	return chunks
+	corr := correlation(points[0], points[1])
+	fmt.Printf("Score (%v * %v * %v): %v\n", corr, corr, matches, corr*corr*matches)
+	return corr * corr * matches
 }
 
-// FingerprintChunks processes a collection of audio data represented as chunks of complex numbers and
-// generates fingerprints for each chunk based on the magnitude of frequency components within specific frequency ranges.
-func FingerprintChunks(chunks [][]complex128, chunkTag *ChunkTag) ([]int64, map[int64]ChunkTag) {
-	var fingerprintList []int64
-	fingerprintMap := make(map[int64]ChunkTag)
+// Correlation computes the correlation between 2 series of points
+// the length used is x's
+func correlation(x []float64, y []float64) float64 {
+	n := len(x)
+	meanX, meanY := Avg(x[:n]), Avg(y[:n])
 
-	var chunksPerSecond int
-	var chunkCount int
-	var chunkTime time.Time
+	sXY := 0.0
+	sX := 0.0
+	sY := 0.0
 
-	if chunkTag != nil {
-		// bytesPerSecond = (samplingRate * bitDepth * channels) / 8
-		chunksPerSecond = (chunkSize - hopSize) / samplingRate
-		chunksPerSecond = len(chunks)
+	for i, xp := range x {
+		dx := xp - meanX
+		dy := y[i] - meanY
 
-		fmt.Println("CHUNKS PER SECOND: ", chunksPerSecond)
-		chunksPerSecond = 3
-		fmt.Println("CHUNKS PER SECOND: ", chunksPerSecond)
-		// if chunkSize == 4096 {
-		// 	chunksPerSecond = 10
-		// }
-		chunkCount = 0
-		chunkTime = time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)
+		sX += dx * dx
+		sY += dy * dy
+
+		sXY += dx * dy
 	}
 
-	for _, chunk := range chunks {
-		if chunkTag != nil {
-			chunkCount++
-			if chunkCount == chunksPerSecond {
-				chunkCount = 0
-				chunkTime = chunkTime.Add(1 * time.Second)
-				// fmt.Println(chunkTime.Format("15:04:05"))
-			}
-		}
-
-		chunkMags := map[string]int{
-			"20-60": 0, "60-250": 0, "250-500": 0,
-			"500-2000": 0, "2000-4000": 0, "4000-8000": 0, "8000-20000": 0,
-		}
-
-		for _, frequency := range chunk {
-			magnitude := int(cmplx.Abs(frequency))
-			ranges := []struct{ min, max int }{{20, 60}, {60, 250}, {250, 500}, {500, 2000}, {2000, 4000}, {4000, 8000}, {8000, 20001}}
-
-			for _, r := range ranges {
-				if magnitude >= r.min && magnitude < r.max &&
-					chunkMags[fmt.Sprintf("%d-%d", r.min, r.max)] < magnitude {
-					chunkMags[fmt.Sprintf("%d-%d", r.min, r.max)] = magnitude
-				}
-			}
-		}
-
-		// fingerprint := fmt.Sprintf("%d-%d-%d-%d-%d-%d-%d",
-		// 	chunkMags["20-60"],
-		// 	chunkMags["60-250"],
-		// 	chunkMags["250-500"],
-		// 	chunkMags["500-2000"],
-		// 	chunkMags["2000-4000"],
-		// 	chunkMags["4000-8000"],
-		// 	chunkMags["8000-20000"])
-
-		// fmt.Println(fingerprint)
-
-		points := [4]int64{
-			int64(chunkMags["60-250"]),
-			int64(chunkMags["250-500"]),
-			int64(chunkMags["500-2000"]),
-			int64(chunkMags["2000-4000"])}
-		// key := hash1(points[:])
-		// fmt.Printf("%s: %v\n", fingerprint, key)
-
-		// points := [6]int64{
-		// 	int64(chunkMags["20-60"]),
-		// 	int64(chunkMags["60-250"]),
-		// 	int64(chunkMags["250-500"]),
-		// 	int64(chunkMags["500-2000"]),
-		// 	int64(chunkMags["2000-4000"]),
-		// 	int64(chunkMags["4000-8000"])}
-		key := hash(points[:])
-
-		if chunkTag != nil {
-			newSampleTag := *chunkTag
-			newSampleTag.TimeStamp = chunkTime.Format("15:04:05")
-			fingerprintMap[key] = newSampleTag
-		} else {
-			fingerprintList = append(fingerprintList, key)
-		}
+	if sX == 0 || sY == 0 {
+		return 0
 	}
 
-	return fingerprintList, fingerprintMap
+	return sXY / (math.Sqrt(sX) * math.Sqrt(sY))
 }
 
-func hash(values []int64) int64 {
-	weight := 100
-	var result int64
-	for _, value := range values {
-		result += (value - (value % fuzzFactor)) * int64(weight)
-		weight = weight * weight
+// Avg computes the average of the given array
+func Avg(arr []float64) float64 {
+	if len(arr) == 0 {
+		return 0
 	}
 
-	return result
-}
-
-func hash1(values []int64) int64 {
-	p1, p2, p3, p4 := values[0], values[1], values[2], values[3]
-	return (p4-(p4%fuzzFactor))*100000000 +
-		(p3-(p3%fuzzFactor))*100000 +
-		(p2-(p2%fuzzFactor))*100 +
-		(p1 - (p1 % fuzzFactor))
-}
-
-func hash2(values []int64) int64 {
-	for i := range values {
-		values[i] += rand.Int63n(fuzzFactor) - fuzzFactor/2
+	sum := 0.0
+	for _, v := range arr {
+		sum += v
 	}
 
-	var buf []byte
-	for _, v := range values {
-		b := make([]byte, 8)
-		binary.LittleEndian.PutUint64(b, uint64(v))
-		buf = append(buf, b...)
-	}
-
-	hash := sha256.Sum256(buf)
-
-	return int64(binary.BigEndian.Uint64(hash[:8]))
+	return sum / float64(len(arr))
 }
