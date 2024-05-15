@@ -1,6 +1,6 @@
 package models
 
-type Table struct {
+type Couple struct {
 	AnchorTimeMs uint32
 	SongID       uint32
 }
