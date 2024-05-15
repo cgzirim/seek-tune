@@ -13,7 +13,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-const dbUri string = "mongodb://localhost:27017"
+// godotenv.Load(".env")
+
+var (
+	dbUsername = GetEnv("DB_USER")
+	dbPassword = GetEnv("DB_PASS")
+	dbName     = GetEnv("DB_NAME")
+	dbHost     = GetEnv("DB_HOST")
+	dbPort     = GetEnv("DB_PORT")
+
+	dbUri = "mongodb://" + dbUsername + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName
+)
 
 // DbClient represents a MongoDB client
 type DbClient struct {
@@ -22,6 +32,10 @@ type DbClient struct {
 
 // NewDbClient creates a new instance of DbClient
 func NewDbClient() (*DbClient, error) {
+	if dbUsername == "" || dbPassword == "" {
+		dbUri = "mongodb://localhost:27017"
+	}
+
 	clientOptions := options.Client().ApplyURI(dbUri)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
@@ -38,10 +52,10 @@ func (db *DbClient) Close() error {
 	return nil
 }
 
-func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Table) error {
+func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) error {
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
-	for address, table := range fingerprints {
+	for address, couple := range fingerprints {
 		// Check if the address already exists in the database
 		var existingDoc bson.M
 		err := collection.FindOne(context.Background(), bson.M{"_id": address}).Decode(&existingDoc)
@@ -50,10 +64,10 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Table) erro
 				// If address doesn't exist, insert a new document
 				doc := bson.M{
 					"_id": address,
-					"tables": []interface{}{
+					"couples": []interface{}{
 						bson.M{
-							"anchorTimeMs": table.AnchorTimeMs,
-							"songID":       table.SongID,
+							"anchorTimeMs": couple.AnchorTimeMs,
+							"songID":       couple.SongID,
 						},
 					},
 				}
@@ -66,12 +80,12 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Table) erro
 				return fmt.Errorf("error checking if document exists: %s", err)
 			}
 		} else {
-			// If address exists, append the new table to the existing tables list
+			// If address exists, append the new couple to the existing tables list
 
 			_, err := collection.UpdateOne(
 				context.Background(),
 				bson.M{"_id": address},
-				bson.M{"$push": bson.M{"tables": bson.M{"anchorTimeMs": table.AnchorTimeMs, "songID": table.SongID}}},
+				bson.M{"$push": bson.M{"couples": bson.M{"anchorTimeMs": couple.AnchorTimeMs, "songID": couple.SongID}}},
 			)
 			if err != nil {
 				return fmt.Errorf("error updating document: %s", err)
@@ -82,10 +96,10 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Table) erro
 	return nil
 }
 
-func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, error) {
+func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, error) {
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
-	tables := make(map[uint32][]models.Table)
+	tables := make(map[uint32][]models.Couple)
 
 	for _, address := range addresses {
 		// Find the document corresponding to the address
@@ -99,7 +113,7 @@ func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, er
 		}
 
 		// Extract tables from the document and append them to the tables map
-		var docTables []models.Table
+		var docCouples []models.Couple
 		tableArray, ok := result["tables"].(primitive.A)
 		if !ok {
 			return nil, fmt.Errorf("tables field in document for address %d is not valid", address)
@@ -108,16 +122,16 @@ func (db *DbClient) GetTables(addresses []uint32) (map[uint32][]models.Table, er
 		for _, item := range tableArray {
 			itemMap, ok := item.(primitive.M)
 			if !ok {
-				return nil, fmt.Errorf("invalid table format in document for address %d", address)
+				return nil, fmt.Errorf("invalid couple format in document for address %d", address)
 			}
 
-			table := models.Table{
+			couple := models.Couple{
 				AnchorTimeMs: uint32(itemMap["anchorTimeMs"].(int64)),
 				SongID:       uint32(itemMap["songID"].(int64)),
 			}
-			docTables = append(docTables, table)
+			docCouples = append(docCouples, couple)
 		}
-		tables[address] = docTables
+		tables[address] = docCouples
 	}
 
 	return tables, nil
