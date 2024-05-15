@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -81,18 +80,4 @@ func GetLogger() *slog.Logger {
 
 	logger := slog.New(h)
 	return logger
-}
-
-func main() {
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		ReplaceAttr: replaceAttr,
-	})
-
-	logger := slog.New(h)
-
-	ctx := context.Background()
-
-	err := xerrors.New("something happened")
-
-	logger.ErrorContext(ctx, "image uploaded", slog.Any("error", err))
 }
