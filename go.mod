@@ -56,6 +56,7 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kkdai/youtube/v2 v2.10.1 // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
@@ -63,6 +64,7 @@ require (
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mdobak/go-xerrors v0.3.1 // indirect
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
