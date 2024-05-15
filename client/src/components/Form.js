@@ -36,7 +36,7 @@ const Form = ({ socket }) => {
   const { spotifyUrl } = formState;
 
   return (
-    <form className={styles.Form}>
+    <form className={styles.Form} onSubmit={submitForm}>
       <div style={{ flexGrow: 1 }}>
         <div>Add songs to the server</div>
         <input
@@ -48,7 +48,7 @@ const Form = ({ socket }) => {
           onChange={handleChange}
         />
       </div>
-      <input type="button" value="Submit" onClick={submitForm} />
+      <input type="submit" value="Submit" onClick={submitForm} />
     </form>
   );
 };
