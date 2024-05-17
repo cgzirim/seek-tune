@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 start_backend() {
+    touch back.txt
     cd /home/ubuntu/song-recognition
     go build -tags netgo -ldflags '-s -w' -o app
     nohup ./app > backend.log 2>&1 &
@@ -8,6 +9,7 @@ start_backend() {
 }
 
 start_client() {
+    touch client.txt
     cd /home/ubuntu/song-recognition/client
     nvm install 16
     nvm use 16
