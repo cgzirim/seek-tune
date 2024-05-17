@@ -8,7 +8,4 @@ hooks:
     - location: scripts/BeforeInstall.sh
   AfterInstall:
     - location: scripts/AfterInstall.sh
-      runas: ubuntu
-  ApplicationStart:
     - location: scripts/ApplicationStart.sh
-      runas: ubuntu
