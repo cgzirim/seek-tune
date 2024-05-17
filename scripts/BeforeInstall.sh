@@ -3,7 +3,6 @@
 # clear codedeploy-agent files for a fresh install
 # sudo rm -rf /home/ubuntu/install
 
-touch /home/ubuntu/status.txt
 sudo apt-get -y update
 
 if [ ! -f "/home/ubuntu/install" ]; then
@@ -20,7 +19,6 @@ fi
 
 # install golang
 sudo apt-get -y install golang-go
-echo "Installed Golang" >> /home/ubuntu/status.txt
 
 # install nodeJS, npm, and nvm
 sudo apt -y install nodejs
