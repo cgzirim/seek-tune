@@ -9,3 +9,4 @@ hooks:
   AfterInstall:
     - location: scripts/AfterInstall.sh
     - location: scripts/ApplicationStart.sh
+    runas: ubuntu
