@@ -9,6 +9,7 @@ start_backend() {
 
 start_client() {
     cd /home/ubuntu/song-recognition/client
+    nvm install 16
     nvm use 16
     npm run build
     nohup serve -s build > client.log 2>&1 &
