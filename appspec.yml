@@ -6,7 +6,6 @@ files:
 hooks:
   BeforeInstall:
     - location: scripts/BeforeInstall.sh
-      runas: ubuntu
   AfterInstall:
     - location: scripts/AfterInstall.sh
       runas: ubuntu
