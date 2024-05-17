@@ -16,6 +16,9 @@ sudo ./install auto
 sudo apt-get -y install golang-go
 
 # install nodeJS and nvm
-sudo apt install nodejs
-sudo apt install npm
+sudo apt -y install nodejs
+sudo apt -u install npm
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# install MongoDB
+sudo apt -y install mongodb
