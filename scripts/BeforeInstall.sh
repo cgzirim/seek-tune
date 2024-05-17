@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 # clear codedeploy-agent files for a fresh install
-sudo rm -rf /home/ubuntu/install
+# sudo rm -rf /home/ubuntu/install
+
+touch /home/ubuntu/hello.txt
 
 # install CodeDeploy agent
 sudo apt-get -y update
