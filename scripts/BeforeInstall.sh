@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# clear codedeploy-agent files for a fresh install
-# sudo rm -rf /home/ubuntu/install
-
 sudo apt-get -y update
 
 if [ ! -f "/home/ubuntu/install" ]; then
