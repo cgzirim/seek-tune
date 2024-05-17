@@ -1,1 +1,1 @@
-sudo chown -R ubuntu:ubuntu /home/ubuntu/aws_cicd
+sudo chown -R ubuntu:ubuntu /home/ubuntu/song-recognition
