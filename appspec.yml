@@ -1,0 +1,12 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/song-recognition
+hooks:
+  BeforeInstall:
+      - location: scripts/BeforeInstall.sh
+  AfterInstall:
+      - location: scripts/AfterInstall.sh
+  ApplicationStart:
+    - location: scripts/ApplicationStart.sh
