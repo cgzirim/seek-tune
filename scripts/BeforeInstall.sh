@@ -13,8 +13,6 @@ if [ ! -f "/home/ubuntu/install" ]; then
     wget https://aws-codedeploy-eu-north-1.s3.amazonaws.com/latest/install
     sudo chmod +x ./install 
     sudo ./install auto
-else
-    echo "CodeDeploy agent already installed."
 fi
 
 # install golang
@@ -26,7 +24,7 @@ sudo apt -y install npm
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
 # Install MongoDB only if not already present
-if [ ! -d "/usr/bin/mongod" ]; then
+if [ ! -f "/usr/bin/mongod" ]; then
     sudo apt-get install gnupg curl
     curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
        sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
