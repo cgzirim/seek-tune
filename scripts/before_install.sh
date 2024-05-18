@@ -15,7 +15,7 @@ if [ ! -f "/home/ubuntu/install" ]; then
     wget https://aws-codedeploy-eu-north-1.s3.amazonaws.com/latest/install
     sudo chmod +x ./install 
     sudo ./install auto
-    sudo apt-get install -y python-pip
+    sudo apt-get install -y python3-pip
     sudo pip install awscli
     echo "C" >> /home/ubuntu/status.txt
 fi
