@@ -2,6 +2,8 @@
 
 sudo apt-get -y update
 
+sudo rm -rf /home/ubuntu/install
+
 if [ ! -f "/home/ubuntu/install" ]; then
     # install CodeDeploy agent
     sudo apt-get -y install ruby
