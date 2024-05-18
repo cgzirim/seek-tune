@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	tmpSongDir = "/home/chigozirim/Documents/my-docs/song-recognition/songs/"
+	SONGS_DIR = "songs"
 )
 
 func GinMiddleware(allowOrigin string) gin.HandlerFunc {
@@ -76,6 +76,13 @@ func main() {
 
 		return nil
 	})
+
+	err := spotify.CreateFolder(SONGS_DIR)
+	if err != nil {
+		err := xerrors.New(err)
+		logMsg := fmt.Sprintf("failed to create directory %v", SONGS_DIR)
+		logger.ErrorContext(ctx, logMsg, slog.Any("error", err))
+	}
 
 	server.OnEvent("/", "totalSongs", func(socket socketio.Conn) {
 		db, err := utils.NewDbClient()
@@ -132,7 +139,7 @@ func main() {
 			statusMsg := fmt.Sprintf("%v songs found in album.", len(tracksInAlbum))
 			socket.Emit("downloadStatus", downloadStatus("info", statusMsg))
 
-			totalTracksDownloaded, err := spotify.DlAlbum(spotifyURL, tmpSongDir)
+			totalTracksDownloaded, err := spotify.DlAlbum(spotifyURL, SONGS_DIR)
 			if err != nil {
 				socket.Emit("downloadStatus", downloadStatus("error", "Couldn't to download album."))
 
@@ -163,7 +170,7 @@ func main() {
 			statusMsg := fmt.Sprintf("%v songs found in playlist.", len(tracksInPL))
 			socket.Emit("downloadStatus", downloadStatus("info", statusMsg))
 
-			totalTracksDownloaded, err := spotify.DlPlaylist(spotifyURL, tmpSongDir)
+			totalTracksDownloaded, err := spotify.DlPlaylist(spotifyURL, SONGS_DIR)
 			if err != nil {
 				socket.Emit("downloadStatus", downloadStatus("error", "Couldn't download playlist."))
 
@@ -213,7 +220,7 @@ func main() {
 				logger.ErrorContext(ctx, "failed to get song by key.", slog.Any("error", err))
 			}
 
-			totalDownloads, err := spotify.DlSingleTrack(spotifyURL, tmpSongDir)
+			totalDownloads, err := spotify.DlSingleTrack(spotifyURL, SONGS_DIR)
 			if err != nil {
 				if len(err.Error()) <= 25 {
 					socket.Emit("downloadStatus", downloadStatus("error", err.Error()))
