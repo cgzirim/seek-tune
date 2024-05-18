@@ -5,8 +5,14 @@ files:
     destination: /home/ubuntu/song-recognition
 hooks:
   BeforeInstall:
-    - location: scripts/BeforeInstall.sh
+    - location: scripts/before_install.sh
+    runas: ubuntu
   AfterInstall:
-    - location: scripts/AfterInstall.sh
-    - location: scripts/ApplicationStart.sh
+    - location: scripts/after_install.sh
+    runas: ubuntu
+  ApplicationStart:
+    - location: scripts/start_server.sh
+    runas: ubuntu
+  ApplicationStop:
+    - location: scripts/stop_server.sh
     runas: ubuntu
