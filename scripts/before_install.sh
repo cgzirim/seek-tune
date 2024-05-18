@@ -15,10 +15,9 @@ fi
 # install golang
 sudo apt-get -y install golang-go
 
-# install nodeJS, npm, and nvm
+# install nodeJS and npm
 sudo apt -y install nodejs
 sudo apt -y install npm
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
 # Install MongoDB only if not already present
 if [ ! -f "/usr/bin/mongod" ]; then
