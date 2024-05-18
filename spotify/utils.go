@@ -47,6 +47,14 @@ func DeleteFile(filePath string) {
 	}
 }
 
+func CreateFolder(folderPath string) error {
+	err := os.MkdirAll(folderPath, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func SongKeyExists(key string) (bool, error) {
 	db, err := utils.NewDbClient()
 	if err != nil {
