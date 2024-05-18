@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 PID=$(sudo lsof -t -i:5000)
 
 if [ -n "$PID" ]; then
