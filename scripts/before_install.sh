@@ -2,7 +2,7 @@
 
 sudo apt-get -y update
 
-sudo rm -rf /home/ubuntu/install
+# sudo rm -rf /home/ubuntu/install
 
 if [ ! -f "/home/ubuntu/install" ]; then
     # install CodeDeploy agent
