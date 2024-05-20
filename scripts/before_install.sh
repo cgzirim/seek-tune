@@ -1,24 +1,9 @@
 #!/usr/bin/env bash
 
 touch /home/ubuntu/status.txt
-
-sudo apt-get -y update
-# sudo rm -rf /home/ubuntu/install
 echo "A" >> /home/ubuntu/status.txt
 
-if [ ! -f "/home/ubuntu/install" ]; then
-    # install CodeDeploy agent
-    echo "B" >> /home/ubuntu/status.txt
-    sudo apt-get -y install ruby
-    sudo apt-get -y install wget
-    cd /home/ubuntu
-    wget https://aws-codedeploy-eu-north-1.s3.amazonaws.com/latest/install
-    sudo chmod +x ./install 
-    sudo ./install auto
-    sudo apt-get install -y python3-pip
-    sudo pip install awscli
-    echo "C" >> /home/ubuntu/status.txt
-fi
+sudo apt-get -y update
 
 # install golang
 sudo apt-get -y install golang-go
@@ -43,3 +28,5 @@ if [ ! -f "/usr/bin/mongod" ]; then
     sudo apt-get install -y mongosh
     echo "H" >> /home/ubuntu/status.txt
 fi
+
+sudo rm -rf /home/ubuntu/song-recognition
