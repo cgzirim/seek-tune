@@ -6,12 +6,13 @@ files:
 hooks:
   BeforeInstall:
     - location: scripts/before_install.sh
+      runas: root
   AfterInstall:
     - location: scripts/after_install.sh
-    runas: root
+      runas: root
   ApplicationStart:
     - location: scripts/start_server.sh
-    runas: ubuntu
+      runas: ubuntu
   ApplicationStop:
     - location: scripts/stop_server.sh
-    runas: root
+      runas: root
