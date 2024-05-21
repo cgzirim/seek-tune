@@ -9,6 +9,9 @@ sudo apt-get -y install golang-go
 sudo apt -y install nodejs
 sudo apt -y install npm
 
+# install ffmpeg
+sudo apt-get -y install ffmpeg
+
 # Install MongoDB only if not already present
 if [ ! -f "/usr/bin/mongod" ]; then
     sudo apt-get install gnupg curl
