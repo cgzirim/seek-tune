@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+ 
 touch /home/ubuntu/status.txt
 echo "A" >> /home/ubuntu/status.txt
 
