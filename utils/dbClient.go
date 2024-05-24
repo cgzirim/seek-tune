@@ -80,7 +80,7 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) err
 				return fmt.Errorf("error checking if document exists: %s", err)
 			}
 		} else {
-			// If address exists, append the new couple to the existing tables list
+			// If address exists, append the new couple to the existing couples list
 
 			_, err := collection.UpdateOne(
 				context.Background(),
@@ -99,7 +99,7 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) err
 func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, error) {
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
-	tables := make(map[uint32][]models.Couple)
+	couples := make(map[uint32][]models.Couple)
 
 	for _, address := range addresses {
 		// Find the document corresponding to the address
@@ -112,14 +112,14 @@ func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, 
 			return nil, fmt.Errorf("error retrieving document for address %d: %s", address, err)
 		}
 
-		// Extract tables from the document and append them to the tables map
+		// Extract couples from the document and append them to the couples map
 		var docCouples []models.Couple
-		tableArray, ok := result["tables"].(primitive.A)
+		couplesList, ok := result["couples"].(primitive.A)
 		if !ok {
-			return nil, fmt.Errorf("tables field in document for address %d is not valid", address)
+			return nil, fmt.Errorf("couples field in document for address %d is not valid", address)
 		}
 
-		for _, item := range tableArray {
+		for _, item := range couplesList {
 			itemMap, ok := item.(primitive.M)
 			if !ok {
 				return nil, fmt.Errorf("invalid couple format in document for address %d", address)
@@ -131,10 +131,10 @@ func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, 
 			}
 			docCouples = append(docCouples, couple)
 		}
-		tables[address] = docCouples
+		couples[address] = docCouples
 	}
 
-	return tables, nil
+	return couples, nil
 }
 
 func (db *DbClient) TotalSongs() (int, error) {
