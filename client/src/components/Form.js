@@ -10,7 +10,8 @@ const Form = ({ socket }) => {
     setFormState({ ...formState, [name]: value });
   };
 
-  const submitForm = () => {
+  const submitForm = (event) => {
+    event.preventDefault();
     const { spotifyUrl } = formState;
     if (spotifyURLisValid(spotifyUrl) === false) {
       return;
