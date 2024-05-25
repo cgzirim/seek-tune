@@ -44,7 +44,30 @@ const Listen = ({ disable, startListening, stopListening, isListening }) => {
 
   return (
     <>
-      <div
+      <section className={styles.RippleContainer}>
+        <div
+          className={
+            isListening
+              ? `${styles.RippleBox} ${styles.RippleBoxPlay}`
+              : `${styles.RippleBox} ${styles.RippleBoxStop}`
+          }
+        >
+          <div
+            className={
+              isListening
+                ? `${styles.RippleButton} ${styles.RippleButtonPlay}`
+                : `${styles.RippleButton} ${styles.RippleButtonStop}`
+            }
+          >
+            <ListenButton
+              isListening={isListening}
+              onClick={toggleListen}
+              disable={disable}
+            />
+          </div>
+        </div>
+      </section>
+      {/* <div
         className={
           isListening
             ? `${styles.CirlceItems} ${styles.Play}`
@@ -59,7 +82,7 @@ const Listen = ({ disable, startListening, stopListening, isListening }) => {
           onClick={toggleListen}
           disable={disable}
         />
-      </div>
+      </div> */}
     </>
   );
 };
