@@ -32,20 +32,34 @@
 .SlideItem {
     height: 100%;
     width: 100%;
-    margin-left: 20px;
    scroll-snap-align: center;
+}
+
+.SlideItem:not(:first-child) {
+    margin-left: 15px;
 }
 
 .SlideItem:nth-child(1) { background-color: rebeccapurple;}
 .SlideItem:nth-child(2) { background-color: dodgerblue;}
 .SlideItem:nth-child(3) { background-color: greenyellow;}
 
+.Iframe {
+    width: 450px;
+    height: 300px;
+}
 
 
-@media (min-width: 768px) {
+@media (max-width: 868px) {
     .Iframe {
-        width: 450px;
-        height: 300px;
+        width: 360px;
+        height: 230px;
+    }
+}
+
+@media (max-width: 690px) {
+    .Iframe {
+        width: 280px;
+        height: 150px;
     }
 }
 
