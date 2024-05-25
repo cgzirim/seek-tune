@@ -11,14 +11,16 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-var socket = io("http://localhost:5000/");
+var socket = io("http://51.20.115.7:5000/");
+// var socket = io("http://localhost:5000/");
 
 function App() {
   const [stream, setStream] = useState();
   const [matches, setMatches] = useState([]);
   const [totalSongs, setTotalSongs] = useState(10);
   const [isListening, setisListening] = useState(false);
-  const [audioInput, setAudioInput] = useState("device");
+  const [audioInput, setAudioInput] = useState("device"); // or "mic"
+  const [isPhone, setIsPhone] = useState(window.innerWidth <= 550);
   const [registeredMediaEncoder, setRegisteredMediaEncoder] = useState(false);
 
   const streamRef = useRef(stream);
@@ -29,6 +31,10 @@ function App() {
   }, [stream]);
 
   useEffect(() => {
+    if (isPhone) {
+      setAudioInput("mic");
+    }
+
     socket.on("connect", () => {
       socket.emit("totalSongs", "");
     });
@@ -36,7 +42,7 @@ function App() {
     socket.on("matches", (matches) => {
       matches = JSON.parse(matches);
       if (matches) {
-        setMatches(matches);
+        setMatches(matches.slice(0, 5));
         console.log("Matches: ", matches);
       } else {
         toast("No song found.");
@@ -97,12 +103,38 @@ function App() {
       const audioStream = new MediaStream(audioTracks);
 
       setStream(audioStream);
+
       audioTracks[0].onended = stopListening;
 
       // Stop video tracks
       for (const track of stream.getVideoTracks()) {
         track.stop();
       }
+
+      // const audioContext = new AudioContext({
+      //   sampleRate: 44100,
+      // });
+      // const mediaStreamAudioSourceNode = new MediaStreamAudioSourceNode(
+      //   audioContext,
+      //   { mediaStream: audioStream }
+      // );
+      // const mediaStreamAudioDestinationNode =
+      //   new MediaStreamAudioDestinationNode(audioContext, {
+      //     channelCount: 1,
+      //   });
+
+      // mediaStreamAudioSourceNode.connect(mediaStreamAudioDestinationNode);
+
+      // const mediaRecorder = new MediaRecorder(
+      //   mediaStreamAudioDestinationNode.stream,
+      //   { mimeType: "audio/wav" }
+      // );
+
+      // const settings = mediaStreamAudioDestinationNode.stream
+      //   .getAudioTracks()[0]
+      //   .getSettings();
+
+      // console.log("Settings: ", settings);
 
       const mediaRecorder = new MediaRecorder(audioStream, {
         mimeType: "audio/wav",
@@ -125,10 +157,11 @@ function App() {
       mediaRecorder.addEventListener("stop", () => {
         const blob = new Blob(chunks, { type: "audio/wav" });
         const reader = new FileReader();
-        reader.readAsArrayBuffer(blob);
 
+        cleanUp();
         // downloadRecord(blob);
 
+        reader.readAsArrayBuffer(blob);
         reader.onload = (event) => {
           const arrayBuffer = event.target.result;
 
@@ -157,7 +190,7 @@ function App() {
       });
     } catch (error) {
       console.error("error:", error);
-      // Handle errors gracefully
+      cleanUp();
     }
   }
 
@@ -183,8 +216,8 @@ function App() {
   }
 
   function stopListening() {
-    sendRecordingRef.current = false;
     cleanUp();
+    sendRecordingRef.current = false;
   }
 
   function handleLaptopIconClick() {
@@ -217,28 +250,30 @@ function App() {
           isListening={isListening}
         />
       </div>
-      <div className="audio-input">
-        <div
-          onClick={handleLaptopIconClick}
-          className={
-            audioInput !== "device"
-              ? "audio-input-device"
-              : "audio-input-device active-audio-input"
-          }
-        >
-          <LiaLaptopSolid style={{ height: 20, width: 20 }} />
+      {!isPhone && (
+        <div className="audio-input">
+          <div
+            onClick={handleLaptopIconClick}
+            className={
+              audioInput !== "device"
+                ? "audio-input-device"
+                : "audio-input-device active-audio-input"
+            }
+          >
+            <LiaLaptopSolid style={{ height: 20, width: 20 }} />
+          </div>
+          <div
+            onClick={handleMicrophoneIconClick}
+            className={
+              audioInput !== "mic"
+                ? "audio-input-mic"
+                : "audio-input-mic active-audio-input"
+            }
+          >
+            <FaMicrophoneLines style={{ height: 20, width: 20 }} />
+          </div>
         </div>
-        <div
-          onClick={handleMicrophoneIconClick}
-          className={
-            audioInput !== "mic"
-              ? "audio-input-mic"
-              : "audio-input-mic active-audio-input"
-          }
-        >
-          <FaMicrophoneLines style={{ height: 20, width: 20 }} />
-        </div>
-      </div>
+      )}
       <div className="youtube">
         <CarouselSliders matches={matches} />
       </div>
