@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import YouTube from "react-youtube";
 import styles from "./styles/CarouselSliders.module.css";
 
 const CarouselSliders = (props) => {
-  const [activeVideoID, setActiveVideoID] = React.useState(null);
+  const [activeVideoID, setActiveVideoID] = useState(null);
   const players = useRef({});
 
   const activeVid = props.matches.length ? props.matches[0].YouTubeID : "";
