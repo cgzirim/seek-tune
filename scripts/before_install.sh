@@ -12,6 +12,20 @@ sudo apt -y install npm
 # install ffmpeg
 sudo apt-get -y install ffmpeg
 
+# install Certbot
+DOMAIN="localport.online"
+EMAIL="cgzirim@gmail.com"
+CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
+
+if [ ! -f "$CERT_DIR" ]; then
+    sudo apt install -y certbot
+    sudo certbot certonly --standalone -d $DOMAIN --email $EMAIL --agree-tos --non-interactive
+    if [ $? -eq 0 ]; then
+        sudo chmod u+r "$CERT_DIR/privkey.pem"
+        sudo chmod u+r "$CERT_DIR/fullchain.pem"
+  fi
+fi
+
 # Install MongoDB only if not already present
 if [ ! -f "/usr/bin/mongod" ]; then
     sudo apt-get install gnupg curl
