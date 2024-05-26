@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,32 +15,21 @@ import (
 	"song-recognition/wav"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/mdobak/go-xerrors"
 
 	socketio "github.com/googollee/go-socket.io"
+	"github.com/googollee/go-socket.io/engineio"
+	"github.com/googollee/go-socket.io/engineio/transport"
+	"github.com/googollee/go-socket.io/engineio/transport/polling"
+	"github.com/googollee/go-socket.io/engineio/transport/websocket"
 )
 
 const (
 	SONGS_DIR = "songs"
 )
 
-func GinMiddleware(allowOrigin string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, X-CSRF-Token, Token, session, Origin, Host, Connection, Accept-Encoding, Accept-Language, X-Requested-With")
-
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-
-		c.Request.Header.Del("Origin")
-
-		c.Next()
-	}
+var allowOriginFunc = func(r *http.Request) bool {
+	return true
 }
 
 func downloadStatus(statusType, message string) string {
@@ -63,9 +53,17 @@ type RecordData struct {
 }
 
 func main() {
-	router := gin.New()
 
-	server := socketio.NewServer(nil)
+	server := socketio.NewServer(&engineio.Options{
+		Transports: []transport.Transport{
+			&polling.Transport{
+				CheckOrigin: allowOriginFunc,
+			},
+			&websocket.Transport{
+				CheckOrigin: allowOriginFunc,
+			},
+		},
+	})
 
 	logger := utils.GetLogger()
 	ctx := context.Background()
@@ -316,11 +314,39 @@ func main() {
 	}()
 	defer server.Close()
 
-	router.Use(GinMiddleware("http://localhost:3000"))
-	router.GET("/socket.io/*any", gin.WrapH(server))
-	router.POST("/socket.io/*any", gin.WrapH(server))
+	SERVE_HTTPS := strings.ToLower(utils.GetEnv("SERVE_HTTPS"))
+	serveHTTPS := SERVE_HTTPS == "true"
 
-	if err := router.Run(":5000"); err != nil {
-		log.Fatal("failed run app: ", err)
+	serveHTTP(server, serveHTTPS)
+}
+
+func serveHTTP(socketServer *socketio.Server, serveHTTPS bool) {
+	http.Handle("/socket.io/", socketServer)
+
+	if serveHTTPS {
+		httpsAddr := ":443"
+		httpsServer := &http.Server{
+			Addr: httpsAddr,
+			TLSConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+			Handler: socketServer,
+		}
+
+		cert_key := utils.GetEnv("CERT_KEY")
+		cert_file := utils.GetEnv("CERT_FILE")
+		if cert_key == "" || cert_file == "" {
+			log.Fatal("Missing cert")
+		}
+
+		log.Printf("Starting HTTPS server on %s\n", httpsAddr)
+		if err := httpsServer.ListenAndServeTLS(cert_file, cert_key); err != nil {
+			log.Fatalf("HTTPS server ListenAndServeTLS: %v", err)
+		}
+	}
+
+	log.Printf("Starting HTTP server on port 80")
+	if err := http.ListenAndServe(":80", nil); err != nil {
+		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
 }
