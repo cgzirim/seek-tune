@@ -9,7 +9,7 @@ start_server() {
 
     go build -tags netgo -ldflags '-s -w' -o app
     sudo setcap CAP_NET_BIND_SERVICE+ep app
-    nohup ./app > backend.log 2>&1 &
+    nohup sudo ./app > backend.log 2>&1 &
 }
 
 start_client() {
