@@ -333,8 +333,8 @@ func serveHTTP(socketServer *socketio.Server, serveHTTPS bool) {
 			Handler: socketServer,
 		}
 
-		cert_key_default := "/etc/letsencrypt/live/localport.online/fullchain.pem"
-		cert_file_default := "/etc/letsencrypt/live/localport.online/privkey.pem"
+		cert_key_default := "/etc/letsencrypt/live/localport.online/privkey.pem"
+		cert_file_default := "/etc/letsencrypt/live/localport.online/fullchain.pem"
 
 		cert_key := utils.GetEnv("CERT_KEY", cert_key_default)
 		cert_file := utils.GetEnv("CERT_FILE", cert_file_default)
