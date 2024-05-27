@@ -11,8 +11,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-var socket = io("http://51.20.115.7:5000/");
-// var socket = io("http://localhost:5000/");
+// var socket = io("http://localhost/");
+var socket = io("https://localport.online/");
 
 function App() {
   const [stream, setStream] = useState();
