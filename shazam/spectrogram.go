@@ -88,6 +88,10 @@ type Peak struct {
 
 // ExtractPeaks extracts peaks from a spectrogram based on a specified algorithm
 func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
+	if len(spectrogram) < 1 {
+		return []Peak{}
+	}
+
 	type maxies struct {
 		maxMag  float64
 		maxFreq complex128
