@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
-PID=$(sudo lsof -t -i:5000)
+HTTP_PID=$(sudo lsof -t -i:80)
+HTTPS_PID=$(sudo lsof -t -i:443)
 
-if [ -n "$PID" ]; then
-  sudo kill -9 $PID
+
+if [ -n "$HTTP_PID" ]; then
+  sudo kill -9 $HTTP_PID
+fi
+
+if [ -n "$HTTPS_PID" ]; then
+  sudo kill -9 $HTTPS_PID
 fi
