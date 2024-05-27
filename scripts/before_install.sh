@@ -21,8 +21,8 @@ if [ ! -f "$CERT_DIR" ]; then
     sudo apt install -y certbot
     sudo certbot certonly --standalone -d $DOMAIN --email $EMAIL --agree-tos --non-interactive
     if [ $? -eq 0 ]; then
-        sudo chmod u+r "$CERT_DIR/privkey.pem"
-        sudo chmod u+r "$CERT_DIR/fullchain.pem"
+        sudo chmod 755 "$CERT_DIR/privkey.pem"
+        sudo chmod 755 "$CERT_DIR/fullchain.pem"
   fi
 fi
 
