@@ -4,8 +4,8 @@ start_server() {
     cd /home/ubuntu/song-recognition
 
     export SERVE_HTTPS="true"
-    export CERT_KEY="/etc/letsencrypt/live/localport.online/fullchain.pem"
-    export CERT_FILE="/etc/letsencrypt/live/localport.online/privkey.pem"
+    export CERT_KEY="/etc/letsencrypt/live/localport.online/privkey.pem"
+    export CERT_FILE="/etc/letsencrypt/live/localport.online/fullchain.pem"
 
     go build -tags netgo -ldflags '-s -w' -o app
     sudo setcap CAP_NET_BIND_SERVICE+ep app
