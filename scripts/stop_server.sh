@@ -11,3 +11,4 @@ fi
 if [ -n "$HTTPS_PID" ]; then
   sudo kill -9 $HTTPS_PID
 fi
+
