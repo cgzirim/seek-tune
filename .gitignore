@@ -23,3 +23,5 @@
 # Go workspace file
 go.work
 /songs
+
+package-lock.json
