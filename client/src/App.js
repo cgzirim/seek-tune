@@ -11,8 +11,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-// var socket = io("http://localhost/");
-var socket = io("https://localport.online/");
+var socket = io("http://localhost:5000");
+// var socket = io("https://localport.online/");
 
 function App() {
   const [stream, setStream] = useState();
@@ -184,7 +184,7 @@ function App() {
           };
 
           if (sendRecordingRef.current) {
-            socket.emit("record", JSON.stringify(recordData));
+            socket.emit("newRecording", JSON.stringify(recordData));
           }
         };
       });
