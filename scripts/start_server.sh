@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+echo "Hello server" > /home/ubuntu/started.txt
+
 start_server() {
     cd /home/ubuntu/song-recognition
 
