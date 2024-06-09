@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"song-recognition/spotify"
 	"song-recognition/utils"
+	"strconv"
 	"strings"
 
 	"github.com/mdobak/go-xerrors"
@@ -77,7 +78,10 @@ func main() {
 	defer server.Close()
 
 	SERVE_HTTPS := strings.ToLower(utils.GetEnv("SERVE_HTTPS", "true"))
-	serveHTTPS := SERVE_HTTPS == "false"
+	serveHTTPS, err := strconv.ParseBool(SERVE_HTTPS)
+	if err != nil {
+		log.Fatalf("Error converting string to bool: %v", err)
+	}
 
 	serveHTTP(server, serveHTTPS)
 }
