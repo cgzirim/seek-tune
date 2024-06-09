@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-echo "Hello server" > /home/ubuntu/started.txt
-
 HTTP_PID=$(sudo lsof -t -i:5000)
 HTTPS_PID=$(sudo lsof -t -i:4443)
 
