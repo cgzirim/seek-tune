@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 HTTP_PID=$(sudo lsof -t -i:5000)
-HTTPS_PID=$(sudo lsof -t -i:4443)
+HTTPS_PID=$(sudo lsof -t -i:443)
 
 
 if [ -n "$HTTP_PID" ]; then
