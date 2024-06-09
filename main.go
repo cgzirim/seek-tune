@@ -90,7 +90,7 @@ func serveHTTP(socketServer *socketio.Server, serveHTTPS bool) {
 	http.Handle("/socket.io/", socketServer)
 
 	if serveHTTPS {
-		httpsAddr := ":4443"
+		httpsAddr := ":443"
 		httpsServer := &http.Server{
 			Addr: httpsAddr,
 			TLSConfig: &tls.Config{
