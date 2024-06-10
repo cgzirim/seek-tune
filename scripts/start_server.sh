@@ -20,4 +20,3 @@ start_client() {
 }
 
 start_server
- 
