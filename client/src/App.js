@@ -159,7 +159,7 @@ function App() {
         const reader = new FileReader();
 
         cleanUp();
-        // downloadRecord(blob);
+        downloadRecord(blob);
 
         reader.readAsArrayBuffer(blob);
         reader.onload = (event) => {
