@@ -159,7 +159,7 @@ function App() {
         const reader = new FileReader();
 
         cleanUp();
-        // downloadRecording(blob);
+        downloadRecording(blob);
 
         reader.readAsArrayBuffer(blob);
         reader.onload = (event) => {
@@ -178,9 +178,9 @@ function App() {
 
           const recordData = {
             audio: rawAudio,
-            channels: audioConfig.channelCount,
-            sampleRate: audioConfig.sampleRate,
-            sampleSize: audioConfig.sampleSize,
+            channels: audioConfig.channelCount || 1,
+            sampleRate: audioConfig.sampleRate || 44100,
+            sampleSize: audioConfig.sampleSize || 16,
           };
 
           if (sendRecordingRef.current) {
