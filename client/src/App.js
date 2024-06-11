@@ -11,8 +11,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-// var socket = io("http://localhost:5000");
-var socket = io("https://localport.online:4443/");
+var socket = io("http://localhost:5000");
+// var socket = io("https://localport.online:4443/");
 
 function App() {
   const [stream, setStream] = useState();
@@ -178,9 +178,9 @@ function App() {
 
           const recordData = {
             audio: rawAudio,
-            channels: audioConfig.channelCount || 1,
-            sampleRate: audioConfig.sampleRate || 44100,
-            sampleSize: audioConfig.sampleSize || 16,
+            channels: audioConfig.channelCount,
+            sampleRate: audioConfig.sampleRate,
+            sampleSize: audioConfig.sampleSize,
           };
 
           if (sendRecordingRef.current) {
