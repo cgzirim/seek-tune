@@ -178,9 +178,9 @@ function App() {
 
           const recordData = {
             audio: rawAudio,
-            channels: audioConfig.channelCount,
-            sampleRate: audioConfig.sampleRate,
-            sampleSize: audioConfig.sampleSize,
+            channels: audioConfig.channelCount || 1,
+            sampleRate: audioConfig.sampleRate || 44100,
+            sampleSize: audioConfig.sampleSize || 16,
           };
 
           if (sendRecordingRef.current) {
