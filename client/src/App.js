@@ -159,7 +159,7 @@ function App() {
         const reader = new FileReader();
 
         cleanUp();
-        downloadRecord(blob);
+        // downloadRecording(blob);
 
         reader.readAsArrayBuffer(blob);
         reader.onload = (event) => {
@@ -194,7 +194,7 @@ function App() {
     }
   }
 
-  function downloadRecord(blob) {
+  function downloadRecording(blob) {
     const blobUrl = URL.createObjectURL(blob);
 
     // Create a download link
