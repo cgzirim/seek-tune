@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -65,6 +66,13 @@ func WriteWavFile(filename string, data []byte, sampleRate int, channels int, bi
 		return err
 	}
 	defer f.Close()
+
+	if sampleRate <= 0 || channels <= 0 || bitsPerSample <= 0 {
+		return fmt.Errorf(
+			"values must be greater than zero (sampleRate: %d, channels: %d, bitsPerSample: %d)",
+			sampleRate, channels, bitsPerSample,
+		)
+	}
 
 	err = writeWavHeader(f, data, sampleRate, channels, bitsPerSample)
 	if err != nil {
