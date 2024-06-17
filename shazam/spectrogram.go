@@ -54,28 +54,27 @@ func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
 	return spectrogram, nil
 }
 
-// Downsample downsamples a list of float64 values to a specified ratio by averaging groups of samples
 func downsample(input []float64, ratio int) ([]float64, error) {
-	// if ratio <= 0 || len(input)%ratio != 0 {
-	// 	return nil, errors.New("invalid or incompatible ratio")
-	// }
 	if ratio <= 0 {
 		return nil, errors.New("invalid or incompatible ratio")
 	}
 
-	outputSize := len(input) / ratio
+	outputSize := (len(input) + ratio - 1) / ratio
 	output := make([]float64, outputSize)
 
 	for i := 0; i < outputSize; i++ {
 		startIndex := i * ratio
 		endIndex := startIndex + ratio
+		if endIndex > len(input) {
+			endIndex = len(input)
+		}
 		sum := 0.0
 
 		for j := startIndex; j < endIndex; j++ {
 			sum += input[j]
 		}
 
-		output[i] = sum / float64(ratio)
+		output[i] = sum / float64(endIndex-startIndex)
 	}
 
 	return output, nil
