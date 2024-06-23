@@ -238,12 +238,11 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 		logger.ErrorContext(ctx, "failed to write wav file.", slog.Any("error", err))
 	}
 
-	matches, err := shazam.FindMatchess(samples, recData.Duration, sampleRate)
+	matches, _, err := shazam.FindMatches(samples, recData.Duration, sampleRate)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to get matches.", slog.Any("error", err))
 	}
-	fmt.Println("Matches! : ", matches)
 
 	jsonData, err := json.Marshal(matches)
 	if len(matches) > 10 {
