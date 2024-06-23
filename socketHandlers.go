@@ -206,7 +206,6 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 	channels := recData.Channels
 	sampleRate := recData.SampleRate
 	bitsPerSample := recData.SampleSize
-	fmt.Println(channels, sampleRate, bitsPerSample)
 
 	samples, err := wav.WavBytesToSamples(decodedAudioData)
 	if err != nil {
