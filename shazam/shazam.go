@@ -5,6 +5,7 @@ import (
 	"math"
 	"song-recognition/utils"
 	"sort"
+	"time"
 )
 
 type Match struct {
@@ -17,12 +18,13 @@ type Match struct {
 }
 
 // FindMatches processes the audio samples and finds matches in the database
-func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) ([]Match, error) {
+func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) ([]Match, time.Duration, error) {
+	startTime := time.Now()
 	logger := utils.GetLogger()
 
 	spectrogram, err := Spectrogram(audioSamples, sampleRate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get spectrogram of samples: %v", err)
+		return nil, time.Since(startTime), fmt.Errorf("failed to get spectrogram of samples: %v", err)
 	}
 
 	peaks := ExtractPeaks(spectrogram, audioDuration)
@@ -35,13 +37,13 @@ func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) 
 
 	db, err := utils.NewDbClient()
 	if err != nil {
-		return nil, err
+		return nil, time.Since(startTime), err
 	}
 	defer db.Close()
 
 	m, err := db.GetCouples(addresses)
 	if err != nil {
-		return nil, err
+		return nil, time.Since(startTime), err
 	}
 
 	matches := map[uint32][][2]uint32{} // songID -> [(sampleTime, dbTime)]
@@ -68,7 +70,6 @@ func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) 
 			continue
 		}
 
-		fmt.Printf("Song: %v, Score: %v\n", song.Title, points)
 		match := Match{songID, song.Title, song.Artist, song.YouTubeID, timestamps[songID], points}
 		matchList = append(matchList, match)
 	}
@@ -77,8 +78,7 @@ func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) 
 		return matchList[i].Score > matchList[j].Score
 	})
 
-	fmt.Println("MatchList len: ", len(matchList))
-	return matchList, nil
+	return matchList, time.Since(startTime), nil
 }
 
 // AnalyzeRelativeTiming checks for consistent relative timing and returns a score
