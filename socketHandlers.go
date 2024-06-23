@@ -30,10 +30,11 @@ func downloadStatus(statusType, message string) string {
 }
 
 type RecordData struct {
-	Audio      string `json:"audio"`
-	Channels   int    `json:"channels"`
-	SampleRate int    `json:"sampleRate"`
-	SampleSize int    `json:"sampleSize"`
+	Audio      string  `json:"audio"`
+	Duration   float64 `json:"duration"`
+	Channels   int     `json:"channels"`
+	SampleRate int     `json:"sampleRate"`
+	SampleSize int     `json:"sampleSize"`
 }
 
 func handleTotalSongs(socket socketio.Conn) {
@@ -207,19 +208,38 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 	bitsPerSample := recData.SampleSize
 	fmt.Println(channels, sampleRate, bitsPerSample)
 
-	err = wav.WriteWavFile("blob.wav", decodedAudioData, sampleRate, channels, bitsPerSample)
-	if err != nil {
-		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "failed to write wav file.", slog.Any("error", err))
-	}
-
 	samples, err := wav.WavBytesToSamples(decodedAudioData)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to convert decodedData to samples.", slog.Any("error", err))
 	}
 
-	matches, err := shazam.FindMatches(samples, 10.0, sampleRate)
+	/** this operation alters the audio, adding some level of bass to it.
+	if sampleRate != 44100 {
+		samples, err = shazam.Downsample(samples, sampleRate, 44100)
+		if err != nil {
+			err := xerrors.New(err)
+			logger.ErrorContext(ctx, "failed to downsample.", slog.Any("error", err))
+		}
+		sampleRate = 44100
+	}
+
+	// Save recording
+	recordingInBytes, err := utils.FloatsToBytes(samples, bitsPerSample)
+	if err != nil {
+		err := xerrors.New(err)
+		logger.ErrorContext(ctx, "failed to convert bytes.", slog.Any("error", err))
+	}
+	decodedAudioData = recordingInBytes
+	*/
+
+	err = wav.WriteWavFile("blob.wav", decodedAudioData, sampleRate, channels, bitsPerSample)
+	if err != nil {
+		err := xerrors.New(err)
+		logger.ErrorContext(ctx, "failed to write wav file.", slog.Any("error", err))
+	}
+
+	matches, err := shazam.FindMatchess(samples, recData.Duration, sampleRate)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to get matches.", slog.Any("error", err))
