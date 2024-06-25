@@ -18,7 +18,7 @@ func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
 	lpf := NewLowPassFilter(maxFreq, float64(sampleRate))
 	filteredSamples := lpf.Filter(samples)
 
-	downsampledSamples, err := downsample(filteredSamples, dspRatio)
+	downsampledSamples, err := Downsample(filteredSamples, sampleRate, sampleRate/dspRatio)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't downsample audio samples: %v", err)
 	}
@@ -54,31 +54,36 @@ func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
 	return spectrogram, nil
 }
 
-// Downsample downsamples a list of float64 values to a specified ratio by averaging groups of samples
-func downsample(input []float64, ratio int) ([]float64, error) {
-	// if ratio <= 0 || len(input)%ratio != 0 {
-	// 	return nil, errors.New("invalid or incompatible ratio")
-	// }
-	if ratio <= 0 {
-		return nil, errors.New("invalid or incompatible ratio")
+// Downsample downsamples the input audio from originalSampleRate to targetSampleRate
+func Downsample(input []float64, originalSampleRate, targetSampleRate int) ([]float64, error) {
+	if targetSampleRate <= 0 || originalSampleRate <= 0 {
+		return nil, errors.New("sample rates must be positive")
+	}
+	if targetSampleRate > originalSampleRate {
+		return nil, errors.New("target sample rate must be less than or equal to original sample rate")
 	}
 
-	outputSize := len(input) / ratio
-	output := make([]float64, outputSize)
+	ratio := originalSampleRate / targetSampleRate
+	if ratio <= 0 {
+		return nil, errors.New("invalid ratio calculated from sample rates")
+	}
 
-	for i := 0; i < outputSize; i++ {
-		startIndex := i * ratio
-		endIndex := startIndex + ratio
-		sum := 0.0
-
-		for j := startIndex; j < endIndex; j++ {
-			sum += input[j]
+	var resampled []float64
+	for i := 0; i < len(input); i += ratio {
+		end := i + ratio
+		if end > len(input) {
+			end = len(input)
 		}
 
-		output[i] = sum / float64(ratio)
+		sum := 0.0
+		for j := i; j < end; j++ {
+			sum += input[j]
+		}
+		avg := sum / float64(end-i)
+		resampled = append(resampled, avg)
 	}
 
-	return output, nil
+	return resampled, nil
 }
 
 type Peak struct {
@@ -108,20 +113,19 @@ func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
 		var maxFreqs []complex128
 		var freqIndices []float64
 
-		binBandMaxies := map[string]maxies{}
-		for freqIdx, freq := range bin {
-			magnitude := cmplx.Abs(freq)
-
-			for _, band := range bands {
-				if magnitude >= float64(band.min) && magnitude < float64(band.max) {
-					key := fmt.Sprintf("%d-%d", band.min, band.max)
-					value, ok := binBandMaxies[key]
-
-					if !ok || magnitude > value.maxMag {
-						binBandMaxies[key] = maxies{magnitude, freq, freqIdx}
-					}
+		binBandMaxies := []maxies{}
+		for _, band := range bands {
+			var maxx maxies
+			var maxMag float64
+			for idx, freq := range bin[band.min:band.max] {
+				magnitude := cmplx.Abs(freq)
+				if magnitude > maxMag {
+					maxMag = magnitude
+					freqIdx := band.min + idx
+					maxx = maxies{magnitude, freq, freqIdx}
 				}
 			}
+			binBandMaxies = append(binBandMaxies, maxx)
 		}
 
 		for _, value := range binBandMaxies {

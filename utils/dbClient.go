@@ -56,40 +56,20 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) err
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
 	for address, couple := range fingerprints {
-		// Check if the address already exists in the database
-		var existingDoc bson.M
-		err := collection.FindOne(context.Background(), bson.M{"_id": address}).Decode(&existingDoc)
+		filter := bson.M{"_id": address}
+		update := bson.M{
+			"$push": bson.M{
+				"couples": bson.M{
+					"anchorTimeMs": couple.AnchorTimeMs,
+					"songID":       couple.SongID,
+				},
+			},
+		}
+		opts := options.Update().SetUpsert(true)
+
+		_, err := collection.UpdateOne(context.Background(), filter, update, opts)
 		if err != nil {
-			if err == mongo.ErrNoDocuments {
-				// If address doesn't exist, insert a new document
-				doc := bson.M{
-					"_id": address,
-					"couples": []interface{}{
-						bson.M{
-							"anchorTimeMs": couple.AnchorTimeMs,
-							"songID":       couple.SongID,
-						},
-					},
-				}
-
-				_, err := collection.InsertOne(context.Background(), doc)
-				if err != nil {
-					return fmt.Errorf("error inserting document: %s", err)
-				}
-			} else {
-				return fmt.Errorf("error checking if document exists: %s", err)
-			}
-		} else {
-			// If address exists, append the new couple to the existing couples list
-
-			_, err := collection.UpdateOne(
-				context.Background(),
-				bson.M{"_id": address},
-				bson.M{"$push": bson.M{"couples": bson.M{"anchorTimeMs": couple.AnchorTimeMs, "songID": couple.SongID}}},
-			)
-			if err != nil {
-				return fmt.Errorf("error updating document: %s", err)
-			}
+			return fmt.Errorf("error upserting document: %s", err)
 		}
 	}
 
