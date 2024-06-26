@@ -18,18 +18,25 @@ Clone the repository:
 ```
 git clone https://github.com/cgzirim/song-recognition.git
 ```
-Install dependencies
+Install dependencies for the backend
 ```
 cd song-recognition
 go get ./...
 ```
+Install dependencies for the client
+```
+cd song-recognition/client
+npm install
+```
 
 ## Usage
-Install and Start the Client App
+Start the Client App
 ```
-cd client
-npm install
 npm start
+```
+Serve the Backend App
+```
+go run main.go serve [-proto <http|https>] [-port <port number>]
 ```
 Download a Song
 ```
@@ -38,10 +45,6 @@ go run main.go download <https://open.spotify.com/.../...>
 Find matches for a song/recording
 ```
 go run main.go find <path-to-wav-file>
-```
-Serve the Application
-```
-go run main.go serve [-proto <http|https>] [-port <port number>]
 ```
 
 ### Example
