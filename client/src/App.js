@@ -11,8 +11,10 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-// var socket = io("http://localhost:5000");
-var socket = io("https://localport.online:4443/");
+const backendServer =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+
+var socket = io(backendServer);
 
 function App() {
   const [stream, setStream] = useState();
@@ -111,30 +113,32 @@ function App() {
         track.stop();
       }
 
-      // const audioContext = new AudioContext({
-      //   sampleRate: 44100,
-      // });
-      // const mediaStreamAudioSourceNode = new MediaStreamAudioSourceNode(
-      //   audioContext,
-      //   { mediaStream: audioStream }
-      // );
-      // const mediaStreamAudioDestinationNode =
-      //   new MediaStreamAudioDestinationNode(audioContext, {
-      //     channelCount: 1,
-      //   });
+      /** Attempt to change sampleRate
+      const audioContext = new AudioContext({
+        sampleRate: 44100,
+      });
+      const mediaStreamAudioSourceNode = new MediaStreamAudioSourceNode(
+        audioContext,
+        { mediaStream: audioStream }
+      );
+      const mediaStreamAudioDestinationNode =
+        new MediaStreamAudioDestinationNode(audioContext, {
+          channelCount: 1,
+        });
 
-      // mediaStreamAudioSourceNode.connect(mediaStreamAudioDestinationNode);
+      mediaStreamAudioSourceNode.connect(mediaStreamAudioDestinationNode);
 
-      // const mediaRecorder = new MediaRecorder(
-      //   mediaStreamAudioDestinationNode.stream,
-      //   { mimeType: "audio/wav" }
-      // );
+      const mediaRecorder = new MediaRecorder(
+        mediaStreamAudioDestinationNode.stream,
+        { mimeType: "audio/wav" }
+      );
 
-      // const settings = mediaStreamAudioDestinationNode.stream
-      //   .getAudioTracks()[0]
-      //   .getSettings();
+      const settings = mediaStreamAudioDestinationNode.stream
+        .getAudioTracks()[0]
+        .getSettings();
 
-      // console.log("Settings: ", settings);
+      console.log("Settings: ", settings);
+      */
 
       const mediaRecorder = new MediaRecorder(audioStream, {
         mimeType: "audio/wav",
@@ -162,8 +166,16 @@ function App() {
         // downloadRecording(blob);
 
         reader.readAsArrayBuffer(blob);
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
           const arrayBuffer = event.target.result;
+
+          // get record duration
+          const arrayBufferCopy = arrayBuffer.slice(0);
+          const audioContext = new AudioContext();
+          const audioBufferDecoded = await audioContext.decodeAudioData(
+            arrayBufferCopy
+          );
+          const recordDuration = audioBufferDecoded.duration;
 
           var binary = "";
           var bytes = new Uint8Array(arrayBuffer);
@@ -178,6 +190,7 @@ function App() {
 
           const recordData = {
             audio: rawAudio,
+            duration: recordDuration,
             channels: audioConfig.channelCount,
             sampleRate: audioConfig.sampleRate,
             sampleSize: audioConfig.sampleSize,
