@@ -11,10 +11,9 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-const backendServer =
-  process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
 
-var socket = io(backendServer);
+var socket = io(server);
 
 function App() {
   const [stream, setStream] = useState();
