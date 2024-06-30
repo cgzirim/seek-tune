@@ -3,7 +3,6 @@ import io from "socket.io-client";
 import Form from "./components/Form";
 import Listen from "./components/Listen";
 import CarouselSliders from "./components/CarouselSliders";
-// import AnimatedNumber from "react-animated-numbers";
 import { FaMicrophoneLines } from "react-icons/fa6";
 import { LiaLaptopSolid } from "react-icons/lia";
 import { ToastContainer, toast, Slide } from "react-toastify";
@@ -12,7 +11,6 @@ import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
 import AnimatedNumber from "./components/AnimatedNumber";
-import TestComponent from "./components/test_animate";
 
 const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
 
