@@ -213,7 +213,7 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 		logger.ErrorContext(ctx, "failed to convert decodedData to samples.", slog.Any("error", err))
 	}
 
-	/** this operation alters the audio, adding some level of bass to it.
+	/** this operation alters the audio, adds some level of bass to it.
 	if sampleRate != 44100 {
 		samples, err = shazam.Downsample(samples, sampleRate, 44100)
 		if err != nil {
