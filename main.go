@@ -8,7 +8,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Expected 'find', 'download', or 'serve' subcommands")
+		fmt.Println("Expected 'find', 'download', 'erase', or 'serve' subcommands")
 		os.Exit(1)
 	}
 
@@ -33,8 +33,10 @@ func main() {
 		port := serveCmd.String("p", "5000", "Port to use")
 		serveCmd.Parse(os.Args[2:])
 		serve(*protocol, *port)
+	case "erase":
+		erase(SONGS_DIR)
 	default:
-		fmt.Println("Expected 'find', 'download', or 'serve' subcommands")
+		fmt.Println("Expected 'find', 'download', 'erase', or 'serve' subcommands")
 		os.Exit(1)
 	}
 }

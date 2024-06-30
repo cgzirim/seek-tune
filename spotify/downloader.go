@@ -146,8 +146,9 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				return
 			}
 
+			DeleteFile(filepath.Join(path, fileName+".m4a"))
+
 			if DELETE_SONG_FILE {
-				DeleteFile(filepath.Join(path, fileName+".m4a"))
 				DeleteFile(filepath.Join(path, fileName+".wav"))
 			}
 
