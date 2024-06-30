@@ -6,10 +6,14 @@ const CarouselSliders = (props) => {
   const [activeVideoID, setActiveVideoID] = useState(null);
   const players = useRef({});
 
-  const activeVid = props.matches.length ? props.matches[0].YouTubeID : "";
-
   useEffect(() => {
-    setActiveVideoID(activeVid);
+    if (props.matches.length > 0) {
+      const firstVideoID = props.matches[0].YouTubeID;
+      document
+        .getElementById(`slide-${firstVideoID}`)
+        .scrollIntoView({ behavior: "smooth" });
+      setActiveVideoID(firstVideoID);
+    }
   }, [props.matches]);
 
   const onReady = (event, videoId) => {
