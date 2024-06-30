@@ -3,14 +3,14 @@
 [NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these resources. It integrates Spotify and YouTube APIs to find and download songs from the internet.
 
 ## Current Limitations
-While the algorithm works excellently in matching a song with the exact song file, it performs poorly in finding the right match from a song recording.
-However, this is still a work in progress. Hopefully, I can get it to work. I could use some help though.
-Additionally, it only supports song files in WAV format.
+While the algorithm works excellently in matching a song with its exact file, it performs poorly in identifying the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help.   
+Additionally, it currently only supports song files in WAV format.
 
-## Installation
+## Installation :desktop_computer:
 ### Prerequisites
 - Golang: [Install Golang](https://golang.org/dl/)
 - FFmpeg: [Install FFmpeg](https://ffmpeg.org/download.html)
+- MongoDB: [Install MongoDB](https://www.mongodb.com/docs/manual/installation/)
 - NPM: To run the client (frontend).
 
 ### Steps
@@ -29,9 +29,10 @@ cd song-recognition/client
 npm install
 ```
 
-## Usage
+## Usage :bicyclist:
 Start the Client App
 ```
+cd client
 npm start
 ```
 Serve the Backend App
@@ -46,8 +47,12 @@ Find matches for a song/recording
 ```
 go run main.go find <path-to-wav-file>
 ```
+Delete fingerprints and songs
+```
+go run main.go erase
+```
 
-### Example
+### Example :film_projector:
 Download a song 
 ```
 $ go run main.go download https://open.spotify.com/track/4pqwGuGu34g8KtfN8LDGZm?si=b3180b3d61084018
@@ -83,7 +88,7 @@ Top 20 matches:
         - Don't Stop Believin' (2022 Remaster) by Journey, score: 1465.00
         - Lay All Your Love On Me by ABBA, score: 1436.00
 
-Search took: 856ms
+Search took: 856.386557ms
 
 Final prediction: Voilà by André Rieu , score: 5390686.00
 ```
@@ -93,4 +98,9 @@ Final prediction: Voilà by André Rieu , score: 5390686.00
 - [How does Shazam work - Toptal](https://www.toptal.com/algorithms/shazam-it-music-processing-fingerprinting-and-recognition)
 - [Creating Shazam in Java](https://www.royvanrijn.com/blog/2010/06/creating-shazam-in-java/)
 
-
+## Author :black_nib:
+- Chigozirim Igweamaka
+  - Check out my other [GitHub](https://github.com/cgzirim) projects.
+  - Connect with me on [LinkedIn](https://www.linkedin.com/in/chigozirim-igweamaka/).
+  - Follow me on [Twitter](https://twitter.com/cgzirim).
+ 
