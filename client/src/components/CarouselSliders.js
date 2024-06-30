@@ -72,7 +72,11 @@ const CarouselSliders = (props) => {
                     : `${styles.Link} ${styles.ActiveLink}`
                 }
                 href={`#slide-${match.YouTubeID}`}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  document
+                    .getElementById(`slide-${match.YouTubeID}`)
+                    .scrollIntoView({ behavior: "smooth" });
                   setActiveVideoID(match.YouTubeID);
                 }}
               ></a>
