@@ -7,6 +7,8 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
 	"song-recognition/utils"
@@ -187,4 +189,52 @@ func serveHTTP(socketServer *socketio.Server, serveHTTPS bool, port string) {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
+}
+
+func erase(songsDir string) {
+	logger := utils.GetLogger()
+	ctx := context.Background()
+
+	// wipe db
+	dbClient, err := utils.NewDbClient()
+	if err != nil {
+		msg := fmt.Sprintf("Error creating DB client: %v\n", err)
+		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+	}
+
+	err = dbClient.DeleteCollection("fingerprints")
+	if err != nil {
+		msg := fmt.Sprintf("Error deleting collection: %v\n", err)
+		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+	}
+
+	err = dbClient.DeleteCollection("songs")
+	if err != nil {
+		msg := fmt.Sprintf("Error deleting collection: %v\n", err)
+		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+	}
+
+	// delete song files
+	err = filepath.Walk(songsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			ext := filepath.Ext(path)
+			if ext == ".wav" || ext == ".m4a" {
+				err := os.Remove(path)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		msg := fmt.Sprintf("Error walking through directory %s: %v\n", songsDir, err)
+		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+	}
+
+	fmt.Println("Erase successful")
 }
