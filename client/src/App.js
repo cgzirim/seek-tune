@@ -3,13 +3,14 @@ import io from "socket.io-client";
 import Form from "./components/Form";
 import Listen from "./components/Listen";
 import CarouselSliders from "./components/CarouselSliders";
-import AnimatedNumber from "react-animated-numbers";
 import { FaMicrophoneLines } from "react-icons/fa6";
 import { LiaLaptopSolid } from "react-icons/lia";
 import { ToastContainer, toast, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
+
+import AnimatedNumber from "./components/AnimatedNumber";
 
 const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
 
@@ -245,12 +246,7 @@ function App() {
       <div className="TopHeader">
         <h1 style={{ color: "#374151" }}>!Shazam</h1>
         <h4 style={{ display: "flex", justifyContent: "flex-end" }}>
-          <AnimatedNumber
-            includeComma
-            animateToNumber={totalSongs}
-            config={{ tension: 89, friction: 40 }}
-            animationType={"calm"}
-          />
+          <AnimatedNumber includeComma={true} animateToNumber={totalSongs} />
           &nbsp;Songs
         </h4>
       </div>
