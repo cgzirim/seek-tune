@@ -236,5 +236,5 @@ func erase(songsDir string) {
 		logger.ErrorContext(ctx, msg, slog.Any("error", err))
 	}
 
-	fmt.Println("Erase successful")
+	fmt.Println("Erase complete")
 }
