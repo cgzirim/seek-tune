@@ -214,3 +214,12 @@ func (db *DbClient) DeleteSongByID(songID uint32) error {
 
 	return nil
 }
+
+func (db *DbClient) DeleteCollection(collectionName string) error {
+	collection := db.client.Database("song-recognition").Collection(collectionName)
+	err := collection.Drop(context.Background())
+	if err != nil {
+		return fmt.Errorf("error deleting collection: %v", err)
+	}
+	return nil
+}
