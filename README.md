@@ -1,6 +1,6 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
-[NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these resources. It integrates Spotify and YouTube APIs to find and download songs from the internet.
+[NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these [resources](https://github.com/cgzirim/not-shazam/blob/main/README.md#resources). It integrates Spotify and YouTube APIs to find and download songs from the internet.
 
 ## Current Limitations
 While the algorithm works excellently in matching a song with its exact file, it performs poorly in identifying the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help.   
@@ -104,3 +104,5 @@ Final prediction: Voilà by André Rieu , score: 5390686.00
   - Connect with me on [LinkedIn](https://www.linkedin.com/in/chigozirim-igweamaka/).
   - Follow me on [Twitter](https://twitter.com/cgzirim).
  
+## License :lock:
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
