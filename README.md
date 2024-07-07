@@ -92,7 +92,7 @@ Search took: 856.386557ms
 
 Final prediction: Voilà by André Rieu , score: 5390686.00
 ```
-## Resources
+## Resources :card_file_box:
 - [How does Shazam work - Coding Geek](https://drive.google.com/file/d/1ahyCTXBAZiuni6RTzHzLoOwwfTRFaU-C/view) (main resource)
 - [Song recognition using audio fingerprinting](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2019/AudioFingerprinting.pdf)
 - [How does Shazam work - Toptal](https://www.toptal.com/algorithms/shazam-it-music-processing-fingerprinting-and-recognition)
