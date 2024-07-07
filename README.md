@@ -1,6 +1,6 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
-[NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources-card-file-box). It integrates Spotify and YouTube APIs to find and download songs.
+[NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources). It integrates Spotify and YouTube APIs to find and download songs.
 
 ## Current Limitations
 While the algorithm works excellently in matching a song with its exact file, it performs poorly in identifying the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help :slightly_smiling_face:.   
@@ -92,7 +92,8 @@ Search took: 856.386557ms
 
 Final prediction: Voilà by André Rieu , score: 5390686.00
 ```
-## Resources :card_file_box:
+Resources :card_file_box:
+-------------------------
 - [How does Shazam work - Coding Geek](https://drive.google.com/file/d/1ahyCTXBAZiuni6RTzHzLoOwwfTRFaU-C/view) (main resource)
 - [Song recognition using audio fingerprinting](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2019/AudioFingerprinting.pdf)
 - [How does Shazam work - Toptal](https://www.toptal.com/algorithms/shazam-it-music-processing-fingerprinting-and-recognition)
