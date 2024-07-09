@@ -11,6 +11,7 @@ import (
 	"song-recognition/utils"
 	"song-recognition/wav"
 	"strings"
+	"time"
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/mdobak/go-xerrors"
@@ -207,36 +208,35 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 	sampleRate := recData.SampleRate
 	bitsPerSample := recData.SampleSize
 
+	fmt.Printf("Channels: %v, sampleRate: %v, bitsPerSample: %v\n", channels, sampleRate, bitsPerSample)
+
 	samples, err := wav.WavBytesToSamples(decodedAudioData)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to convert decodedData to samples.", slog.Any("error", err))
 	}
 
-	/** this operation alters the audio, adds some level of bass to it.
-	if sampleRate != 44100 {
-		samples, err = shazam.Downsample(samples, sampleRate, 44100)
-		if err != nil {
-			err := xerrors.New(err)
-			logger.ErrorContext(ctx, "failed to downsample.", slog.Any("error", err))
-		}
-		sampleRate = 44100
-	}
-
 	// Save recording
-	recordingInBytes, err := utils.FloatsToBytes(samples, bitsPerSample)
-	if err != nil {
-		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "failed to convert bytes.", slog.Any("error", err))
-	}
-	decodedAudioData = recordingInBytes
-	*/
+	now := time.Now()
+	fileName := fmt.Sprintf("%04d_%02d_%02d_%02d_%02d_%02d.wav",
+		now.Second(), now.Minute(), now.Hour(),
+		now.Day(), now.Month(), now.Year(),
+	)
 
-	err = wav.WriteWavFile("blob.wav", decodedAudioData, sampleRate, channels, bitsPerSample)
+	err = wav.WriteWavFile(fileName, decodedAudioData, sampleRate, channels, bitsPerSample)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to write wav file.", slog.Any("error", err))
 	}
+
+	/*
+		wav.FFmpegConvertWAV(fileName, fileName, 44100, true)
+		wavInfo, _ := wav.ReadWavInfo("mono_" + fileName)
+		samples, _ = wav.WavBytesToSamples(wavInfo.Data)
+		// spotify.DeleteFile(fileName)
+		spotify.DeleteFile("mono_" + fileName)
+
+	*/
 
 	matches, _, err := shazam.FindMatches(samples, recData.Duration, sampleRate)
 	if err != nil {
