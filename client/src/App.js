@@ -94,8 +94,8 @@ function App() {
         audio: {
           autoGainControl: false,
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: false,
+          noiseSuppression: false,
           sampleSize: 16,
         },
       };
