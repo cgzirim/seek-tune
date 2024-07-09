@@ -91,7 +91,7 @@ type Peak struct {
 	Freq complex128
 }
 
-// ExtractPeaks extracts peaks from a spectrogram based on a specified algorithm
+// ExtractPeaks analyzes a spectrogram and extracts significant peaks in the frequency domain over time.
 func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
 	if len(spectrogram) < 1 {
 		return []Peak{}
