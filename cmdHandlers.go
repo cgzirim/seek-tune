@@ -49,6 +49,12 @@ func find(filePath string) {
 		return
 	}
 
+	if len(matches) == 0 {
+		fmt.Println("\nNo match found.")
+		fmt.Printf("\nSearch took: %s\n", searchDuration)
+		return
+	}
+
 	msg := "Matches:"
 	topMatches := matches
 	if len(matches) >= 20 {
@@ -236,5 +242,5 @@ func erase(songsDir string) {
 		logger.ErrorContext(ctx, msg, slog.Any("error", err))
 	}
 
-	fmt.Println("Erase successful")
+	fmt.Println("Erase complete")
 }
