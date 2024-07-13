@@ -1,12 +1,13 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
 <p align="center">
-  <img src="https://drive.google.com/file/d/1Exzbe9980GWUBnNLwgwMK5V3_6Yc2IIB/view"
+  <img src="https://github.com/user-attachments/assets/dfea2ceb-b360-4bf9-b84f-6431a9122d54"
        alt="screenshot"
        width="500"
   >
 </p>
 
+## Description 🎼
 [NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
 
 ## Current Limitations
