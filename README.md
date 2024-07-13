@@ -24,16 +24,16 @@ Additionally, it currently only supports song files in WAV format.
 ### Steps
 Clone the repository:
 ```
-git clone https://github.com/cgzirim/song-recognition.git
+git clone https://github.com/cgzirim/not-shazam.git
 ```
 Install dependencies for the backend
 ```
-cd song-recognition
+cd not-shazam
 go get ./...
 ```
 Install dependencies for the client
 ```
-cd song-recognition/client
+cd not-shazam/client
 npm install
 ```
 
