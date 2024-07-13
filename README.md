@@ -1,5 +1,12 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
+<p align="center">
+  <img src="(https://drive.google.com/file/d/1FafB6lQHMeyZeDRFh1J6VhHaf3JQJB40/view"
+       alt="screenshot"
+       width="500"
+  >
+</p>
+
 [NotShazam](https://notshazam.vercel.app/) is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
 
 ## Current Limitations
@@ -39,10 +46,11 @@ Serve the Backend App
 ```
 go run main.go serve [-proto <http|https>] [-port <port number>]
 ```
-Download a Song
+Download a Song  
+Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.
 ```
 go run main.go download <https://open.spotify.com/.../...>
-```
+```  
 Find matches for a song/recording
 ```
 go run main.go find <path-to-wav-file>
