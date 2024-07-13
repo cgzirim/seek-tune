@@ -1,7 +1,7 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
 <p align="center">
-  <img src="(https://drive.google.com/file/d/1FafB6lQHMeyZeDRFh1J6VhHaf3JQJB40/view"
+  <img src="https://drive.google.com/file/d/1Exzbe9980GWUBnNLwgwMK5V3_6Yc2IIB/view"
        alt="screenshot"
        width="500"
   >
