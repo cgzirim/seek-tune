@@ -153,10 +153,10 @@ function App() {
         chunks.push(e.data);
       };
 
-      // Stop recording after 15 seconds
+      // Stop recording after 20 seconds
       setTimeout(function () {
         mediaRecorder.stop();
-      }, 15000);
+      }, 20000);
 
       mediaRecorder.addEventListener("stop", () => {
         const blob = new Blob(chunks, { type: "audio/wav" });
