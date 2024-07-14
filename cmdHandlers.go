@@ -75,7 +75,7 @@ func find(filePath string) {
 }
 
 func download(spotifyURL string) {
-	err := spotify.CreateFolder(SONGS_DIR)
+	err := utils.CreateFolder(SONGS_DIR)
 	if err != nil {
 		err := xerrors.New(err)
 		logger := utils.GetLogger()
@@ -110,15 +110,6 @@ func serve(protocol, port string) {
 	protocol = strings.ToLower(protocol)
 	var allowOriginFunc = func(r *http.Request) bool {
 		return true
-	}
-
-	err := spotify.CreateFolder(SONGS_DIR)
-	if err != nil {
-		err := xerrors.New(err)
-		logger := utils.GetLogger()
-		ctx := context.Background()
-		logMsg := fmt.Sprintf("failed to create directory %v", SONGS_DIR)
-		logger.ErrorContext(ctx, logMsg, slog.Any("error", err))
 	}
 
 	server := socketio.NewServer(&engineio.Options{
