@@ -39,22 +39,6 @@ func GetFileSize(file string) (int64, error) {
 	return size, nil
 }
 
-func DeleteFile(filePath string) {
-	if _, err := os.Stat(filePath); err == nil {
-		if err := os.RemoveAll(filePath); err != nil {
-			fmt.Println("Error deleting file:", err)
-		}
-	}
-}
-
-func CreateFolder(folderPath string) error {
-	err := os.MkdirAll(folderPath, 0755)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func SongKeyExists(key string) (bool, error) {
 	db, err := utils.NewDbClient()
 	if err != nil {

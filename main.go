@@ -1,12 +1,34 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"song-recognition/utils"
+
+	"github.com/mdobak/go-xerrors"
 )
 
 func main() {
+	err := utils.CreateFolder("tmp")
+	if err != nil {
+		logger := utils.GetLogger()
+		err := xerrors.New(err)
+		ctx := context.Background()
+		logger.ErrorContext(ctx, "Failed create tmp dir.", slog.Any("error", err))
+	}
+
+	err = utils.CreateFolder(SONGS_DIR)
+	if err != nil {
+		err := xerrors.New(err)
+		logger := utils.GetLogger()
+		ctx := context.Background()
+		logMsg := fmt.Sprintf("failed to create directory %v", SONGS_DIR)
+		logger.ErrorContext(ctx, logMsg, slog.Any("error", err))
+	}
+
 	if len(os.Args) < 2 {
 		fmt.Println("Expected 'find', 'download', 'erase', or 'serve' subcommands")
 		os.Exit(1)

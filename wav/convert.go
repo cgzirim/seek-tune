@@ -14,7 +14,7 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, errr 
 		return "", fmt.Errorf("input file does not exist: %v", err)
 	}
 
-	if channels != 1 || channels != 2 {
+	if channels < 1 || channels > 2 {
 		channels = 1
 	}
 
@@ -27,6 +27,32 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, errr 
 		"-y", // Automatically overwrite if file exists
 		"-i", inputFilePath,
 		"-c", "pcm_s16le", // Output PCM signed 16-bit little-endian audio
+		"-ar", "44100",
+		"-ac", fmt.Sprint(channels),
+		outputFile,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to convert to WAV: %v, output %v", err, string(output))
+	}
+
+	return outputFile, nil
+}
+
+func ReformatWAV(inputFilePath string, channels int) (reformatedFilePath string, errr error) {
+	if channels < 1 || channels > 2 {
+		channels = 1
+	}
+
+	fileExt := filepath.Ext(inputFilePath)
+	outputFile := strings.TrimSuffix(inputFilePath, fileExt) + "rfm.wav"
+
+	cmd := exec.Command(
+		"ffmpeg",
+		"-y",
+		"-i", inputFilePath,
+		"-c", "pcm_s16le",
 		"-ar", "44100",
 		"-ac", fmt.Sprint(channels),
 		outputFile,
