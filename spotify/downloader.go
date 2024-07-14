@@ -146,10 +146,10 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				return
 			}
 
-			DeleteFile(filepath.Join(path, fileName+".m4a"))
+			utils.DeleteFile(filepath.Join(path, fileName+".m4a"))
 
 			if DELETE_SONG_FILE {
-				DeleteFile(filepath.Join(path, fileName+".wav"))
+				utils.DeleteFile(filepath.Join(path, fileName+".wav"))
 			}
 
 			fmt.Printf("'%s' by '%s' was downloaded\n", track.Title, track.Artist)
