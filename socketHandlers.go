@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"song-recognition/models"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
 	"song-recognition/utils"
-	"song-recognition/wav"
 	"strings"
-	"time"
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/mdobak/go-xerrors"
@@ -28,14 +26,6 @@ func downloadStatus(statusType, message string) string {
 		return ""
 	}
 	return string(jsonData)
-}
-
-type RecordData struct {
-	Audio      string  `json:"audio"`
-	Duration   float64 `json:"duration"`
-	Channels   int     `json:"channels"`
-	SampleRate int     `json:"sampleRate"`
-	SampleSize int     `json:"sampleSize"`
 }
 
 func handleTotalSongs(socket socketio.Conn) {
@@ -188,57 +178,21 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 	logger := utils.GetLogger()
 	ctx := context.Background()
 
-	var recData RecordData
+	var recData models.RecordData
 	if err := json.Unmarshal([]byte(recordData), &recData); err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "Failed to unmarshal record data.", slog.Any("error", err))
 		return
 	}
 
-	// Decode base64 data
-	decodedAudioData, err := base64.StdEncoding.DecodeString(recData.Audio)
+	samples, err := utils.ProcessRecording(&recData, true)
 	if err != nil {
 		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "failed to decode base64 data.", slog.Any("error", err))
+		logger.ErrorContext(ctx, "Failed to process recording.", slog.Any("error", err))
 		return
 	}
 
-	// Save the decoded data to a file
-	channels := recData.Channels
-	sampleRate := recData.SampleRate
-	bitsPerSample := recData.SampleSize
-
-	fmt.Printf("Channels: %v, sampleRate: %v, bitsPerSample: %v\n", channels, sampleRate, bitsPerSample)
-
-	samples, err := wav.WavBytesToSamples(decodedAudioData)
-	if err != nil {
-		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "failed to convert decodedData to samples.", slog.Any("error", err))
-	}
-
-	// Save recording
-	now := time.Now()
-	fileName := fmt.Sprintf("%04d_%02d_%02d_%02d_%02d_%02d.wav",
-		now.Second(), now.Minute(), now.Hour(),
-		now.Day(), now.Month(), now.Year(),
-	)
-
-	err = wav.WriteWavFile(fileName, decodedAudioData, sampleRate, channels, bitsPerSample)
-	if err != nil {
-		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "failed to write wav file.", slog.Any("error", err))
-	}
-
-	/*
-		wav.FFmpegConvertWAV(fileName, fileName, 44100, true)
-		wavInfo, _ := wav.ReadWavInfo("mono_" + fileName)
-		samples, _ = wav.WavBytesToSamples(wavInfo.Data)
-		// spotify.DeleteFile(fileName)
-		spotify.DeleteFile("mono_" + fileName)
-
-	*/
-
-	matches, _, err := shazam.FindMatches(samples, recData.Duration, sampleRate)
+	matches, _, err := shazam.FindMatches(samples, recData.Duration, recData.SampleRate)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to get matches.", slog.Any("error", err))
