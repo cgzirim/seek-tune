@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 )
 
 // WavHeader defines the structure of a WAV header
@@ -148,24 +147,4 @@ func WavBytesToSamples(input []byte) ([]float64, error) {
 	}
 
 	return output, nil
-}
-
-// FFmpegConvertWAV converts a WAV file using ffmpeg.
-// It can change the sample rate and optionally convert to mono.
-func FFmpegConvertWAV(inputFile, outputFile string, targetSampleRate int, toMono bool) error {
-	cmdArgs := []string{
-		"-i", inputFile,
-		"-ar", fmt.Sprintf("%d", targetSampleRate),
-		"-y",
-	}
-
-	if toMono {
-		outputFile = "mono_" + outputFile
-		cmdArgs = append(cmdArgs, "-ac", "1", "-c:a", "pcm_s16le")
-	}
-
-	cmdArgs = append(cmdArgs, outputFile)
-
-	cmd := exec.Command("ffmpeg", cmdArgs...)
-	return cmd.Run()
 }
