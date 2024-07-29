@@ -1,18 +1,21 @@
 <h1 align="center">NotShazam :musical_note:</h1>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/dfea2ceb-b360-4bf9-b84f-6431a9122d54"
-       alt="screenshot"
-       width="500"
-  >
+  <a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">
+  <img src="https://github.com/user-attachments/assets/dfea2ceb-b360-4bf9-b84f-6431a9122d54" 
+       alt="screenshot" 
+       width="500">
+</a>
 </p>
+<p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">Demo in Video</a></p>
 
 ## Description 🎼
 NotShazam is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
 
-## Current Limitations
+[//]: # (## Current Limitations
 While the algorithm works excellently in matching a song with its exact file, it doesn't always find the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help :slightly_smiling_face:.   
 Additionally, it currently only supports song files in WAV format.
+)
 
 ## Installation :desktop_computer:
 ### Prerequisites
