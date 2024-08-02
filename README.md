@@ -1,4 +1,4 @@
-<h1 align="center">NotShazam :musical_note:</h1>
+<h1 align="center">SeekTune :musical_note:</h1>
 
 <p align="center">
   <a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">
@@ -10,7 +10,7 @@
 <p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">Demo in Video</a></p>
 
 ## Description 🎼
-NotShazam is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
+SeekTune is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
 
 [//]: # (## Current Limitations
 While the algorithm works excellently in matching a song with its exact file, it doesn't always find the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help :slightly_smiling_face:.   
@@ -27,44 +27,57 @@ Additionally, it currently only supports song files in WAV format.
 ### Steps
 Clone the repository:
 ```
-git clone https://github.com/cgzirim/not-shazam.git
+git clone https://github.com/cgzirim/seek-tune.git
 ```
 Install dependencies for the backend
 ```
-cd not-shazam
+cd seek-tune
 go get ./...
 ```
 Install dependencies for the client
 ```
-cd not-shazam/client
+cd seek-tune/client
 npm install
 ```
 
 ## Usage :bicyclist:
-Start the Client App
+▸ Setup MongoDB   
+  
+To configure the database connection, you need to set the following environment variables:
+- `DB_USER`: The username for the MongoDB database.
+- `DB_PASS`: The password for the MongoDB database.
+- `DB_NAME`: The name of the MongoDB database.
+- `DB_HOST`: The host address of the MongoDB database.
+- `DB_PORT`: The port number of the MongoDB database.
+
+The database connection URI is constructed using the environment variables.  
+If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
+  
+▸ Start the Client App
 ```
 cd client
 npm start
 ```
-Serve the Backend App
+▸ Serve the Backend App
 ```
+cd .. # to go to the root dir
 go run main.go serve [-proto <http|https>] [-port <port number>]
 ```
-Download a Song  
+▸ Download a Song  
 Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.
 ```
 go run main.go download <https://open.spotify.com/.../...>
 ```  
-Find matches for a song/recording
+▸ Find matches for a song/recording
 ```
 go run main.go find <path-to-wav-file>
 ```
-Delete fingerprints and songs
+▸ Delete fingerprints and songs
 ```
 go run main.go erase
 ```
 
-### Example :film_projector:
+## Example :film_projector:  
 Download a song 
 ```
 $ go run main.go download https://open.spotify.com/track/4pqwGuGu34g8KtfN8LDGZm?si=b3180b3d61084018
@@ -109,6 +122,11 @@ Final prediction: Voilà by André Rieu , score: 5390686.00
 - [Song recognition using audio fingerprinting](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2019/AudioFingerprinting.pdf)
 - [How does Shazam work - Toptal](https://www.toptal.com/algorithms/shazam-it-music-processing-fingerprinting-and-recognition)
 - [Creating Shazam in Java](https://www.royvanrijn.com/blog/2010/06/creating-shazam-in-java/)
+
+
+## Todo
+-  [ ] Enable song addition from WAV files
+-  [ ] Add support for file-based DB as an alternative to MongoDB.
 
 ## Author :black_nib:
 - Chigozirim Igweamaka
