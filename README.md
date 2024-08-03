@@ -41,7 +41,7 @@ npm install
 ```
 
 ## Usage :bicyclist:
-#### ▸ Setup MongoDB   
+#### ▸ Setup MongoDB 🍃   
   
 To configure the database connection, you need to set the following environment variables:
 - `DB_USER`: The username for the MongoDB database.
@@ -53,32 +53,32 @@ To configure the database connection, you need to set the following environment 
 The database connection URI is constructed using the environment variables.  
 If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
   
-#### ▸ Start the Client App
+#### ▸ Start the Client App 🏃‍♀️‍➡️
 ```
 cd client
 npm start
 ```
-#### ▸ Start the Backend App
+#### ▸ Start the Backend App 🏃‍♀️
 ```
 cd .. # to go to the root dir
 go run main.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
 ```
-#### ▸ Download a Song  
+#### ▸ Download a Song 📥 
 Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.
 ```
 go run main.go download <https://open.spotify.com/.../...>
 ```  
-#### ▸ Save local songs to DB (supports all audio formats)    
+#### ▸ Save local songs to DB (supports all audio formats) 💾   
 ```
 go run main.go save [-f|--force] <path_to_song_file_or_dir_of_songs>
 ```
 The `-f` or `--force` flag allows saving the song even if a YouTube ID is not found. Note that the frontend will not display matches without a YouTube ID.  
   
-#### ▸ Find matches for a song/recording
+#### ▸ Find matches for a song/recording 🔎
 ```
 go run main.go find <path-to-wav-file>
 ```
-#### ▸ Delete fingerprints and songs
+#### ▸ Delete fingerprints and songs 🗑️
 ```
 go run main.go erase
 ```
