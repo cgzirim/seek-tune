@@ -238,7 +238,6 @@ func erase(songsDir string) {
 	fmt.Println("Erase complete")
 }
 
-// index processes the path, whether it's a directory or a single file.
 func save(path string, force bool) {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -256,7 +255,7 @@ func save(path string, force bool) {
 			if !info.IsDir() {
 				err := saveSong(filePath, force)
 				if err != nil {
-					fmt.Printf("Error indexing song (%v): %v\n", filePath, err)
+					fmt.Printf("Error saving song (%v): %v\n", filePath, err)
 				}
 			}
 			return nil
@@ -265,10 +264,9 @@ func save(path string, force bool) {
 			fmt.Printf("Error walking the directory %v: %v\n", path, err)
 		}
 	} else {
-		// If it's a file, process it directly
 		err := saveSong(path, force)
 		if err != nil {
-			fmt.Printf("Error indexing song (%v): %v\n", path, err)
+			fmt.Printf("Error saving song (%v): %v\n", path, err)
 		}
 	}
 }
@@ -307,6 +305,16 @@ func saveSong(filePath string, force bool) error {
 	err = spotify.ProcessAndSaveSong(filePath, track.Title, track.Artist, ytID)
 	if err != nil {
 		return fmt.Errorf("failed to process or save song: %v", err)
+	}
+
+	// Move song in wav format to songs directory
+	fileName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	wavFile := fileName + ".wav"
+	sourcePath := filepath.Join(filepath.Dir(filePath), wavFile)
+	newFilePath := filepath.Join(SONGS_DIR, wavFile)
+	err = os.Rename(sourcePath, newFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to rename temporary file to output file: %v", err)
 	}
 
 	return nil
