@@ -55,38 +55,39 @@ If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to 
   
 #### ▸ Start the Client App 🏃‍♀️‍➡️
 ```
-cd client
+# assuming you're still in the client dir
+
 npm start
 ```
 #### ▸ Start the Backend App 🏃‍♀️
 ```
 cd .. # to go to the root dir
-go run main.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
+go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
 ```
 #### ▸ Download a Song 📥 
 Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.
 ```
-go run main.go download <https://open.spotify.com/.../...>
+go run *.go download <https://open.spotify.com/.../...>
 ```  
 #### ▸ Save local songs to DB (supports all audio formats) 💾   
 ```
-go run main.go save [-f|--force] <path_to_song_file_or_dir_of_songs>
+go run *.go save [-f|--force] <path_to_song_file_or_dir_of_songs>
 ```
 The `-f` or `--force` flag allows saving the song even if a YouTube ID is not found. Note that the frontend will not display matches without a YouTube ID.  
   
 #### ▸ Find matches for a song/recording 🔎
 ```
-go run main.go find <path-to-wav-file>
+go run *.go find <path-to-wav-file>
 ```
 #### ▸ Delete fingerprints and songs 🗑️
 ```
-go run main.go erase
+go run *.go erase
 ```
 
 ## Example :film_projector:  
 Download a song 
 ```
-$ go run main.go download https://open.spotify.com/track/4pqwGuGu34g8KtfN8LDGZm?si=b3180b3d61084018
+$ go run *.go download https://open.spotify.com/track/4pqwGuGu34g8KtfN8LDGZm?si=b3180b3d61084018
 Getting track info...
 Now, downloading track...
 Fingerprints saved in MongoDB successfully
@@ -96,7 +97,7 @@ Total tracks downloaded: 1
 
 Find matches of a song
 ```
-$ go run main.go find songs/Voilà\ -\ André\ Rieu.wav
+$ go run *.go find songs/Voilà\ -\ André\ Rieu.wav
 Top 20 matches:
         - Voilà by André Rieu, score: 5390686.00
         - I Am a Child of God by One Voice Children's Choir, score: 2539.00
