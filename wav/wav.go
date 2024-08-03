@@ -3,10 +3,12 @@ package wav
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 )
 
 // WavHeader defines the structure of a WAV header
@@ -147,4 +149,54 @@ func WavBytesToSamples(input []byte) ([]float64, error) {
 	}
 
 	return output, nil
+}
+
+// FFmpegMetadata represents the metadata structure returned by ffprobe.
+type FFmpegMetadata struct {
+	Streams []struct {
+		Index         int               `json:"index"`
+		CodecName     string            `json:"codec_name"`
+		CodecLongName string            `json:"codec_long_name"`
+		CodecType     string            `json:"codec_type"`
+		SampleFmt     string            `json:"sample_fmt"`
+		SampleRate    string            `json:"sample_rate"`
+		Channels      int               `json:"channels"`
+		ChannelLayout string            `json:"channel_layout"`
+		BitsPerSample int               `json:"bits_per_sample"`
+		Duration      string            `json:"duration"`
+		BitRate       string            `json:"bit_rate"`
+		Disposition   map[string]int    `json:"disposition"`
+		Tags          map[string]string `json:"tags"`
+	} `json:"streams"`
+	Format struct {
+		Streams        int               `json:"nb_streams"`
+		FormFilename   string            `json:"filename"`
+		NbatName       string            `json:"format_name"`
+		FormatLongName string            `json:"format_long_name"`
+		StartTime      string            `json:"start_time"`
+		Duration       string            `json:"duration"`
+		Size           string            `json:"size"`
+		BitRate        string            `json:"bit_rate"`
+		Tags           map[string]string `json:"tags"`
+	} `json:"format"`
+}
+
+// GetMetadata retrieves metadata from a file using ffprobe.
+func GetMetadata(filePath string) (FFmpegMetadata, error) {
+	var metadata FFmpegMetadata
+
+	cmd := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return metadata, err
+	}
+
+	err = json.Unmarshal(out.Bytes(), &metadata)
+	if err != nil {
+		return metadata, err
+	}
+
+	return metadata, nil
 }
