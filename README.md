@@ -55,13 +55,14 @@ If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to 
   
 #### ▸ Start the Client App 🏃‍♀️‍➡️
 ```
-# assuming you're still in the client dir:
+# Assuming you're in the client directory:
 
 npm start
 ```
-#### ▸ Start the Backend App 🏃‍♀️
+#### ▸ Start the Backend App 🏃‍♀️  
+In a separate terminal window:
 ```
-cd .. # to go to the root dir
+cd seek-tune
 go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
 ```
 #### ▸ Download a Song 📥 
