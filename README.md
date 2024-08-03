@@ -55,7 +55,7 @@ If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to 
   
 #### ▸ Start the Client App 🏃‍♀️‍➡️
 ```
-# assuming you're still in the client dir
+# assuming you're still in the client dir:
 
 npm start
 ```
