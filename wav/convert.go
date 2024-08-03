@@ -8,8 +8,9 @@ import (
 	"strings"
 )
 
-func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, errr error) {
-	_, err := os.Stat(inputFilePath)
+// ConvertToWAV converts an input audio file to WAV format with specified channels.
+func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, err error) {
+	_, err = os.Stat(inputFilePath)
 	if err != nil {
 		return "", fmt.Errorf("input file does not exist: %v", err)
 	}
@@ -21,20 +22,30 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, errr 
 	fileExt := filepath.Ext(inputFilePath)
 	outputFile := strings.TrimSuffix(inputFilePath, fileExt) + ".wav"
 
-	// Execute FFmpeg command to convert to WAV format with one channel (mono)
+	// Output file may already exists. If it does FFmpeg will fail as
+	// it cannot edit existing files in-place. Use a temporary file.
+	tmpFile := filepath.Join(filepath.Dir(outputFile), "tmp_"+filepath.Base(outputFile))
+	defer os.Remove(tmpFile)
+
 	cmd := exec.Command(
 		"ffmpeg",
-		"-y", // Automatically overwrite if file exists
+		"-y",
 		"-i", inputFilePath,
-		"-c", "pcm_s16le", // Output PCM signed 16-bit little-endian audio
+		"-c", "pcm_s16le",
 		"-ar", "44100",
 		"-ac", fmt.Sprint(channels),
-		outputFile,
+		tmpFile,
 	)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to convert to WAV: %v, output %v", err, string(output))
+	}
+
+	// Rename the temporary file to the output file
+	err = os.Rename(tmpFile, outputFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to rename temporary file to output file: %v", err)
 	}
 
 	return outputFile, nil

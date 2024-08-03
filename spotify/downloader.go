@@ -7,11 +7,13 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"song-recognition/shazam"
 	"song-recognition/utils"
 	"song-recognition/wav"
+	"strings"
 	"sync"
 	"time"
 
@@ -139,7 +141,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				return
 			}
 
-			err = processAndSaveSong(filePath, trackCopy.Title, trackCopy.Artist, ytID)
+			err = ProcessAndSaveSong(filePath, trackCopy.Title, trackCopy.Artist, ytID)
 			if err != nil {
 				logMessage := fmt.Sprintf("Failed to process song ('%s' by '%s')", trackCopy.Title, trackCopy.Artist)
 				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
@@ -148,8 +150,17 @@ func dlTrack(tracks []Track, path string) (int, error) {
 
 			utils.DeleteFile(filepath.Join(path, fileName+".m4a"))
 
+			wavFilePath := filepath.Join(path, fileName+".wav")
+
+			if err := addTags(wavFilePath, *trackCopy); err != nil {
+				logMessage := fmt.Sprintf("Error adding tags: %s", filePath+".wav")
+				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
+
+				return
+			}
+
 			if DELETE_SONG_FILE {
-				utils.DeleteFile(filepath.Join(path, fileName+".wav"))
+				utils.DeleteFile(wavFilePath)
 			}
 
 			fmt.Printf("'%s' by '%s' was downloaded\n", track.Title, track.Artist)
@@ -223,7 +234,41 @@ func downloadYTaudio(id, path, filePath string) error {
 	return nil
 }
 
-func processAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
+func addTags(file string, track Track) error {
+	// Create a temporary file name by appending "2" before the extension
+	tempFile := file
+	index := strings.Index(file, ".wav")
+	if index != -1 {
+		baseName := tempFile[:index]       // Filename without extension ('/path/to/title - artist')
+		tempFile = baseName + "2" + ".wav" // Temporary filename ('/path/to/title - artist2.wav')
+	}
+
+	// Execute FFmpeg command to add metadata tags
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", file, // Input file path
+		"-c", "copy",
+		"-metadata", fmt.Sprintf("album_artist=%s", track.Artist),
+		"-metadata", fmt.Sprintf("title=%s", track.Title),
+		"-metadata", fmt.Sprintf("artist=%s", track.Artist),
+		"-metadata", fmt.Sprintf("album=%s", track.Album),
+		tempFile, // Output file path (temporary)
+	)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to add tags: %v, output: %s", err, string(out))
+	}
+
+	// Rename the temporary file to the original filename
+	if err := os.Rename(tempFile, file); err != nil {
+		return fmt.Errorf("failed to rename file: %v", err)
+	}
+
+	return nil
+}
+
+func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
 	db, err := utils.NewDbClient()
 	if err != nil {
 		return err

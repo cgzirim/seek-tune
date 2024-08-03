@@ -8,11 +8,16 @@ const CarouselSliders = (props) => {
 
   useEffect(() => {
     if (props.matches.length > 0) {
-      const firstVideoID = props.matches[0].YouTubeID;
-      document
-        .getElementById(`slide-${firstVideoID}`)
-        .scrollIntoView({ behavior: "smooth" });
-      setActiveVideoID(firstVideoID);
+      // Filter out matches with empty YouTubeID
+      const validMatches = props.matches.filter((match) => match.YouTubeID);
+  
+      if (validMatches.length > 0) {
+        const firstVideoID = validMatches[0].YouTubeID;
+        document
+          .getElementById(`slide-${firstVideoID}`)
+          .scrollIntoView({ behavior: "smooth" });
+        setActiveVideoID(firstVideoID);
+      }
     }
   }, [props.matches]);
 
@@ -41,7 +46,9 @@ const CarouselSliders = (props) => {
       <div className={styles.CarouselSliders}>
         {!props.matches.length ? null : (
           <div className={styles.Slider}>
-            {props.matches.map((match, index) => {
+            {props.matches
+            .filter((match) => match.YouTubeID) // Filter out matches with empty YouTubeID
+            .map((match, index) => {
               const start = (parseInt(match.Timestamp) / 1000) | 0;
 
               return (
@@ -66,7 +73,9 @@ const CarouselSliders = (props) => {
         )}
 
         <div className={styles.Circles}>
-          {props.matches.map((match, _) => {
+          {props.matches
+          .filter((match) => match.YouTubeID)
+          .map((match, _) => {
             return (
               <a
                 key={match.YouTubeID}
