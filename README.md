@@ -42,34 +42,34 @@ npm install
 
 ## Usage :bicyclist:
 
-#### ▸ Start the Client App  
+#### ▸ Start the Client App 🏃‍♀️‍➡️ 
 ```
 # Assuming you're in the client directory:
 
 npm start
 ```
-#### ▸ Start the Backend App  
+#### ▸ Start the Backend App 🏃‍♀️ 
 In a separate terminal window:
 ```
 cd seek-tune
 go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
 ```
-#### ▸ Download a Song  
+#### ▸ Download a Song 📥 
 Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.
 ```
 go run *.go download <https://open.spotify.com/.../...>
 ```  
-#### ▸ Save local songs to DB (supports all audio formats)    
+#### ▸ Save local songs to DB (supports all audio formats) 🗃️   
 ```
 go run *.go save [-f|--force] <path_to_song_file_or_dir_of_songs>
 ```
 The `-f` or `--force` flag allows saving the song even if a YouTube ID is not found. Note that the frontend will not display matches without a YouTube ID.  
   
-#### ▸ Find matches for a song/recording 
+#### ▸ Find matches for a song/recording 🔎
 ```
 go run *.go find <path-to-wav-file>
 ```
-#### ▸ Delete fingerprints and songs 
+#### ▸ Delete fingerprints and songs 🗑️ 
 ```
 go run *.go erase
 ```
