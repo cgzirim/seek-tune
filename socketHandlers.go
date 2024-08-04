@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"song-recognition/db"
 	"song-recognition/models"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
@@ -32,7 +33,7 @@ func handleTotalSongs(socket socketio.Conn) {
 	logger := utils.GetLogger()
 	ctx := context.Background()
 
-	db, err := utils.NewDbClient()
+	db, err := db.NewDBClient()
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "error connecting to DB", slog.Any("error", err))
@@ -130,7 +131,7 @@ func handleSongDownload(socket socketio.Conn, spotifyURL string) {
 		}
 
 		// check if track already exist
-		db, err := utils.NewDbClient()
+		db, err := db.NewDBClient()
 		if err != nil {
 			fmt.Errorf("Log - error connecting to DB: %d", err)
 		}

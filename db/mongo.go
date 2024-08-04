@@ -1,10 +1,11 @@
-package utils
+package db
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"song-recognition/models"
+	"song-recognition/utils"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,46 +14,27 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// godotenv.Load(".env")
-
-var (
-	dbUsername = GetEnv("DB_USER")
-	dbPassword = GetEnv("DB_PASS")
-	dbName     = GetEnv("DB_NAME")
-	dbHost     = GetEnv("DB_HOST")
-	dbPort     = GetEnv("DB_PORT")
-
-	dbUri = "mongodb://" + dbUsername + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName
-)
-
-// DbClient represents a MongoDB client
-type DbClient struct {
+type MongoClient struct {
 	client *mongo.Client
 }
 
-// NewDbClient creates a new instance of DbClient
-func NewDbClient() (*DbClient, error) {
-	if dbUsername == "" || dbPassword == "" {
-		dbUri = "mongodb://localhost:27017"
-	}
-
-	clientOptions := options.Client().ApplyURI(dbUri)
+func NewMongoClient(uri string) (*MongoClient, error) {
+	clientOptions := options.Client().ApplyURI(uri)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to MongoDB: %d", err)
+		return nil, fmt.Errorf("error connecting to MongoDB: %s", err)
 	}
-	return &DbClient{client: client}, nil
+	return &MongoClient{client: client}, nil
 }
 
-// Close closes the underlying MongoDB client
-func (db *DbClient) Close() error {
+func (db *MongoClient) Close() error {
 	if db.client != nil {
 		return db.client.Disconnect(context.Background())
 	}
 	return nil
 }
 
-func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) error {
+func (db *MongoClient) StoreFingerprints(fingerprints map[uint32]models.Couple) error {
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
 	for address, couple := range fingerprints {
@@ -76,7 +58,7 @@ func (db *DbClient) StoreFingerprints(fingerprints map[uint32]models.Couple) err
 	return nil
 }
 
-func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, error) {
+func (db *MongoClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, error) {
 	collection := db.client.Database("song-recognition").Collection("fingerprints")
 
 	couples := make(map[uint32][]models.Couple)
@@ -117,7 +99,7 @@ func (db *DbClient) GetCouples(addresses []uint32) (map[uint32][]models.Couple, 
 	return couples, nil
 }
 
-func (db *DbClient) TotalSongs() (int, error) {
+func (db *MongoClient) TotalSongs() (int, error) {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("songs")
 	total, err := existingSongsCollection.CountDocuments(context.Background(), bson.D{})
 	if err != nil {
@@ -127,7 +109,7 @@ func (db *DbClient) TotalSongs() (int, error) {
 	return int(total), nil
 }
 
-func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) (uint32, error) {
+func (db *MongoClient) RegisterSong(songTitle, songArtist, ytID string) (uint32, error) {
 	existingSongsCollection := db.client.Database("song-recognition").Collection("songs")
 
 	// Create a compound unique index on ytID and key, if it doesn't already exist
@@ -141,8 +123,8 @@ func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) (uint32, er
 	}
 
 	// Attempt to insert the song with ytID and key
-	songID := GenerateUniqueID()
-	key := GenerateSongKey(songTitle, songArtist)
+	songID := utils.GenerateUniqueID()
+	key := utils.GenerateSongKey(songTitle, songArtist)
 	_, err = existingSongsCollection.InsertOne(context.Background(), bson.M{"_id": songID, "key": key, "ytID": ytID})
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
@@ -155,16 +137,10 @@ func (db *DbClient) RegisterSong(songTitle, songArtist, ytID string) (uint32, er
 	return songID, nil
 }
 
-type Song struct {
-	Title     string
-	Artist    string
-	YouTubeID string
-}
+var mongofilterKeys = "_id | ytID | key"
 
-const FILTER_KEYS = "_id | ytID | key"
-
-func (db *DbClient) GetSong(filterKey string, value interface{}) (s Song, songExists bool, e error) {
-	if !strings.Contains(FILTER_KEYS, filterKey) {
+func (db *MongoClient) GetSong(filterKey string, value interface{}) (s Song, songExists bool, e error) {
+	if !strings.Contains(mongofilterKeys, filterKey) {
 		return Song{}, false, errors.New("invalid filter key")
 	}
 
@@ -190,19 +166,19 @@ func (db *DbClient) GetSong(filterKey string, value interface{}) (s Song, songEx
 	return songInstance, true, nil
 }
 
-func (db *DbClient) GetSongByID(songID uint32) (Song, bool, error) {
+func (db *MongoClient) GetSongByID(songID uint32) (Song, bool, error) {
 	return db.GetSong("_id", songID)
 }
 
-func (db *DbClient) GetSongByYTID(ytID string) (Song, bool, error) {
+func (db *MongoClient) GetSongByYTID(ytID string) (Song, bool, error) {
 	return db.GetSong("ytID", ytID)
 }
 
-func (db *DbClient) GetSongByKey(key string) (Song, bool, error) {
+func (db *MongoClient) GetSongByKey(key string) (Song, bool, error) {
 	return db.GetSong("key", key)
 }
 
-func (db *DbClient) DeleteSongByID(songID uint32) error {
+func (db *MongoClient) DeleteSongByID(songID uint32) error {
 	songsCollection := db.client.Database("song-recognition").Collection("songs")
 
 	filter := bson.M{"_id": songID}
@@ -215,7 +191,7 @@ func (db *DbClient) DeleteSongByID(songID uint32) error {
 	return nil
 }
 
-func (db *DbClient) DeleteCollection(collectionName string) error {
+func (db *MongoClient) DeleteCollection(collectionName string) error {
 	collection := db.client.Database("song-recognition").Collection(collectionName)
 	err := collection.Drop(context.Background())
 	if err != nil {
