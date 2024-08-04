@@ -2,11 +2,12 @@
 
 <p align="center">
   <a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">
-  <img src="https://github.com/user-attachments/assets/dfea2ceb-b360-4bf9-b84f-6431a9122d54" 
+  <img src="https://github.com/user-attachments/assets/e4d01e9c-05cf-4f35-acbc-1e3cd79d1e00" 
        alt="screenshot" 
        width="500">
 </a>
 </p>
+
 <p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view">Demo in Video</a></p>
 
 ## Description 🎼
