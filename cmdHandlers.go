@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"song-recognition/db"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
 	"song-recognition/utils"
@@ -195,7 +196,7 @@ func erase(songsDir string) {
 	ctx := context.Background()
 
 	// wipe db
-	dbClient, err := utils.NewDbClient()
+	dbClient, err := db.NewDBClient()
 	if err != nil {
 		msg := fmt.Sprintf("Error creating DB client: %v\n", err)
 		logger.ErrorContext(ctx, msg, slog.Any("error", err))

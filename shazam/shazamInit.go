@@ -2,6 +2,7 @@ package shazam
 
 import (
 	"fmt"
+	"song-recognition/db"
 	"song-recognition/models"
 	"song-recognition/utils"
 	"sort"
@@ -30,7 +31,7 @@ func Search(audioSamples []float64, audioDuration float64, sampleRate int) ([]Ma
 		addresses = append(addresses, address)
 	}
 
-	db, err := utils.NewDbClient()
+	db, err := db.NewDBClient()
 	if err != nil {
 		return nil, err
 	}

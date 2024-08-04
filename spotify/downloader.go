@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"song-recognition/db"
 	"song-recognition/shazam"
 	"song-recognition/utils"
 	"song-recognition/wav"
@@ -88,7 +89,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 
 	ctx := context.Background()
 
-	db, err := utils.NewDbClient()
+	db, err := db.NewDBClient()
 	if err != nil {
 		return 0, err
 	}
@@ -269,11 +270,11 @@ func addTags(file string, track Track) error {
 }
 
 func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
-	db, err := utils.NewDbClient()
+	dbclient, err := db.NewDBClient()
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer dbclient.Close()
 
 	wavFilePath, err := wav.ConvertToWAV(songFilePath, 1)
 	if err != nil {
@@ -295,7 +296,7 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 		return fmt.Errorf("error creating spectrogram: %v", err)
 	}
 
-	songID, err := db.RegisterSong(songTitle, songArtist, ytID)
+	songID, err := dbclient.RegisterSong(songTitle, songArtist, ytID)
 	if err != nil {
 		return err
 	}
@@ -303,13 +304,13 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	peaks := shazam.ExtractPeaks(spectro, wavInfo.Duration)
 	fingerprints := shazam.Fingerprint(peaks, songID)
 
-	err = db.StoreFingerprints(fingerprints)
+	err = dbclient.StoreFingerprints(fingerprints)
 	if err != nil {
-		db.DeleteSongByID(songID)
+		dbclient.DeleteSongByID(songID)
 		return fmt.Errorf("error to storing fingerpring: %v", err)
 	}
 
-	fmt.Println("Fingerprints saved in MongoDB successfully")
+	fmt.Printf("Fingerprint for %v by %v saved in DB successfully\n", songTitle, songArtist)
 	return nil
 }
 

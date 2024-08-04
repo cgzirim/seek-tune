@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"song-recognition/utils"
+	"song-recognition/db"
 	"strings"
 )
 
@@ -40,7 +40,7 @@ func GetFileSize(file string) (int64, error) {
 }
 
 func SongKeyExists(key string) (bool, error) {
-	db, err := utils.NewDbClient()
+	db, err := db.NewDBClient()
 	if err != nil {
 		return false, err
 	}
@@ -55,7 +55,7 @@ func SongKeyExists(key string) (bool, error) {
 }
 
 func YtIDExists(ytID string) (bool, error) {
-	db, err := utils.NewDbClient()
+	db, err := db.NewDBClient()
 	if err != nil {
 		return false, err
 	}
