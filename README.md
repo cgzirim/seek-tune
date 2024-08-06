@@ -74,24 +74,6 @@ go run *.go find <path-to-wav-file>
 go run *.go erase
 ```
 
-### Database Options  
-This application uses SQLite as the default database, but you can switch to MongoDB if preferred.   
-
-#### Using MongoDB
-1. [Install MongoDB](https://www.mongodb.com/docs/manual/installation/)
-2. Configure MongoDB Connection:  
-   To connect to your MongoDB instance, set the following environment variables:
-
-   * `DB_TYPE`: Set this to "mongo" to indicate using MongoDB.
-   * `DB_USER`: The username for your MongoDB database.
-   * `DB_PASS`: The password for your MongoDB database.
-   * `DB_NAME`: The name of the MongoDB database you want to use.
-   * `DB_HOST`: The hostname or IP address of your MongoDB server.
-   * `DB_PORT`: The port number on which your MongoDB server is listening.
-
-   **Note:** The database connection URI is constructed using the environment variables.  
-   If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
-
 ## Example :film_projector:  
 Download a song 
 ```
@@ -132,6 +114,25 @@ Search took: 856.386557ms
 
 Final prediction: Voilà by André Rieu , score: 5390686.00
 ```
+
+## Database Options 👯‍♀️ 
+This application uses SQLite as the default database, but you can switch to MongoDB if preferred.   
+
+#### Using MongoDB
+1. [Install MongoDB](https://www.mongodb.com/docs/manual/installation/)
+2. Configure MongoDB Connection:  
+   To connect to your MongoDB instance, set the following environment variables:
+
+   * `DB_TYPE`: Set this to "mongo" to indicate using MongoDB.
+   * `DB_USER`: The username for your MongoDB database.
+   * `DB_PASS`: The password for your MongoDB database.
+   * `DB_NAME`: The name of the MongoDB database you want to use.
+   * `DB_HOST`: The hostname or IP address of your MongoDB server.
+   * `DB_PORT`: The port number on which your MongoDB server is listening.
+
+   **Note:** The database connection URI is constructed using the environment variables.  
+   If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
+
 ## Resources  :card_file_box:
 - [How does Shazam work - Coding Geek](https://drive.google.com/file/d/1ahyCTXBAZiuni6RTzHzLoOwwfTRFaU-C/view) (main resource)
 - [Song recognition using audio fingerprinting](https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/projects/2019/AudioFingerprinting.pdf)
