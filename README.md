@@ -22,7 +22,6 @@ Additionally, it currently only supports song files in WAV format.
 ### Prerequisites
 - Golang: [Install Golang](https://golang.org/dl/)
 - FFmpeg: [Install FFmpeg](https://ffmpeg.org/download.html)
-- MongoDB: [Install MongoDB](https://www.mongodb.com/docs/manual/installation/)
 - NPM: To run the client (frontend).
 
 ### Steps
@@ -74,19 +73,24 @@ go run *.go find <path-to-wav-file>
 ```
 go run *.go erase
 ```
-#### ▸ Setup MongoDB 🍃   
 
-SQLite is used as the default database; however, you can switch to MongoDB if desired.  
-To configure the database connection for MongoDB, set the following environment variables:
-- `DB_TYPE` = `"mongo"`
-- `DB_USER`: The username for the MongoDB database.
-- `DB_PASS`: The password for the MongoDB database.
-- `DB_NAME`: The name of the MongoDB database.
-- `DB_HOST`: The host address of the MongoDB database.
-- `DB_PORT`: The port number of the MongoDB database.
+### Database Options  
+This application uses SQLite as the default database, but you can switch to MongoDB if preferred.   
 
-The database connection URI is constructed using the environment variables.  
-If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
+#### Using MongoDB
+1. [Install MongoDB](https://www.mongodb.com/docs/manual/installation/)
+2. Configure MongoDB Connection:  
+   To connect to your MongoDB instance, set the following environment variables:
+
+   * `DB_TYPE`: Set this to "mongo" to indicate using MongoDB.
+   * `DB_USER`: The username for your MongoDB database.
+   * `DB_PASS`: The password for your MongoDB database.
+   * `DB_NAME`: The name of the MongoDB database you want to use.
+   * `DB_HOST`: The hostname or IP address of your MongoDB server.
+   * `DB_PORT`: The port number on which your MongoDB server is listening.
+
+   **Note:** The database connection URI is constructed using the environment variables.  
+   If the `DB_USER` or `DB_PASS` environment variables are not set, it defaults to connecting to `mongodb://localhost:27017`.
 
 ## Example :film_projector:  
 Download a song 
@@ -134,10 +138,6 @@ Final prediction: Voilà by André Rieu , score: 5390686.00
 - [How does Shazam work - Toptal](https://www.toptal.com/algorithms/shazam-it-music-processing-fingerprinting-and-recognition)
 - [Creating Shazam in Java](https://www.royvanrijn.com/blog/2010/06/creating-shazam-in-java/)
 
-
-## Todo
--  [x] Implement saving local songs to DB
--  [ ] Add support for file-based DB as an alternative to MongoDB.
 
 ## Author :black_nib:
 - Chigozirim Igweamaka
