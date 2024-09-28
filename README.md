@@ -145,6 +145,7 @@ This application uses SQLite as the default database, but you can switch to Mong
   - Check out my other [GitHub](https://github.com/cgzirim) projects.
   - Connect with me on [LinkedIn](https://www.linkedin.com/in/chigozirim-igweamaka/).
   - Follow me on [Twitter](https://twitter.com/cgzirim).
+  - Hire me [cgzirim@gmail.com](mailto:cgzirim@gmail.com)
  
 ## License :lock:
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
