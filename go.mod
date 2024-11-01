@@ -7,6 +7,7 @@ require (
 	github.com/fatih/color v1.16.0
 	github.com/googollee/go-socket.io v1.7.0
 	github.com/kkdai/youtube/v2 v2.10.1
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/mdobak/go-xerrors v0.3.1
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.17.1
@@ -40,7 +41,6 @@ require (
 	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

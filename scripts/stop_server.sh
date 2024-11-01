@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-HTTP_PID=$(sudo lsof -t -i:5000)
+HTTP_PID=$(sudo lsof -t -i:5005)
 HTTPS_PID=$(sudo lsof -t -i:4443)
 
 
