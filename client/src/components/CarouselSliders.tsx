@@ -1,10 +1,18 @@
+import styles from "./styles/CarouselSliders.module.css"
 import React, { useEffect, useRef, useState } from "react";
 import YouTube from "react-youtube";
-import styles from "./styles/CarouselSliders.module.css";
+
+type Player = {
+  getVideoData: () => {
+    video_id: string
+  }
+  getPlayerState: () => number
+  pauseVideo: () => void
+}
 
 const CarouselSliders = (props) => {
   const [activeVideoID, setActiveVideoID] = useState(null);
-  const players = useRef({});
+  const players = useRef<Record<string, Player>>({});
 
   useEffect(() => {
     if (props.matches.length > 0) {
@@ -13,9 +21,8 @@ const CarouselSliders = (props) => {
   
       if (validMatches.length > 0) {
         const firstVideoID = validMatches[0].YouTubeID;
-        document
-          .getElementById(`slide-${firstVideoID}`)
-          .scrollIntoView({ behavior: "smooth" });
+        document?.getElementById(`slide-${firstVideoID}`)
+          ?.scrollIntoView({ behavior: "smooth" });
         setActiveVideoID(firstVideoID);
       }
     }
@@ -31,12 +38,12 @@ const CarouselSliders = (props) => {
 
     // Pause other videos
     Object.values(players.current).forEach((player) => {
-      const otherVideoId = player.getVideoData().video_id;
+      const otherVideoId = (player as unknown as Player).getVideoData().video_id;
       if (
         otherVideoId !== videoId &&
-        player.getPlayerState() === 1 /* Playing */
+        (player as unknown as Player).getPlayerState() === 1 /* Playing */
       ) {
-        player.pauseVideo();
+        (player as unknown as Player).pauseVideo();
       }
     });
   };
@@ -88,8 +95,8 @@ const CarouselSliders = (props) => {
                 onClick={(e) => {
                   e.preventDefault();
                   document
-                    .getElementById(`slide-${match.YouTubeID}`)
-                    .scrollIntoView({ behavior: "smooth" });
+                    ?.getElementById(`slide-${match.YouTubeID}`)
+                    ?.scrollIntoView({ behavior: "smooth" });
                   setActiveVideoID(match.YouTubeID);
                 }}
               ></a>

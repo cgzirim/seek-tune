@@ -19,7 +19,8 @@
     "react-youtube": "^10.1.0",
     "slick-carousel": "^1.8.1",
     "socket.io-client": "^2.5.0",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "typescript": "^5.5.4"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -39,6 +40,9 @@
     "not op_mini all"
   ],
   "devDependencies": {
-    "react-error-overlay": "^6.0.9"
+    "react-error-overlay": "^6.0.9",
+    "@types/node": "^20.11.18",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0"
   }
 }
