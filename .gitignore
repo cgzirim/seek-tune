@@ -26,3 +26,5 @@ go.work
 .vscode
 
 package-lock.json
+
+db.sqlite3
