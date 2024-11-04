@@ -1,7 +1,9 @@
+'use client';
+
 import React, { useState } from "react";
 import styles from "./styles/Form.module.css";
 
-const Form = ({ socket, toast }) => {
+const SearchByURLForm = ({ socket, toast }) => {
   const initialState = { spotifyUrl: "" };
   const [formState, setFormState] = useState(initialState);
 
@@ -43,7 +45,7 @@ const Form = ({ socket, toast }) => {
   return (
     <form className={styles.Form} onSubmit={submitForm}>
       <div style={{ flexGrow: 1 }}>
-        <div>Add new songs</div>
+        <div>Search by URL</div>
         <input
           type="text"
           name="spotifyUrl"
@@ -63,4 +65,4 @@ const Form = ({ socket, toast }) => {
   );
 };
 
-export default Form;
+export default SearchByURLForm;

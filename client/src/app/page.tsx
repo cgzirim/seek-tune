@@ -1,8 +1,9 @@
+'use client';
 import React, { useEffect, useState, useRef } from "react";
 import io from "socket.io-client";
-import Form from "./components/Form";
-import Listen from "./components/Listen";
-import CarouselSliders from "./components/CarouselSliders";
+import SearchByURLForm from "../components/SearchByURLForm";
+import Listen from "../components/Listen";
+import CarouselSliders from "../components/CarouselSliders";
 import { FaMicrophoneLines } from "react-icons/fa6";
 import { LiaLaptopSolid } from "react-icons/lia";
 import { ToastContainer, toast, Slide } from "react-toastify";
@@ -10,13 +11,15 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-import AnimatedNumber from "./components/AnimatedNumber";
+import AnimatedNumber from "../components/AnimatedNumber";
+import Loader from '../components/Loader';
+import SearchByContentHashForm from '@/components/SearchByContentHashForm';
 
 const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5005";
 
 var socket = io(server);
 
-function App() {
+const Page = (): JSX.Element => {
   const [stream, setStream] = useState<MediaStream | undefined>(undefined);
   const [matches, setMatches] = useState([]);
   const [totalSongs, setTotalSongs] = useState(10);
@@ -294,7 +297,9 @@ function App() {
       <div className="youtube">
         <CarouselSliders matches={matches} />
       </div>
-      <Form socket={socket} toast={toast} />
+      
+      <SearchByURLForm socket={socket} toast={toast} />
+      <SearchByContentHashForm socket={socket} toast={toast} />
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -311,4 +316,4 @@ function App() {
   );
 }
 
-export default App;
+export default Page;

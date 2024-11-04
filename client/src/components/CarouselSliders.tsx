@@ -1,3 +1,5 @@
+'use client';
+
 import styles from "./styles/CarouselSliders.module.css"
 import React, { useEffect, useRef, useState } from "react";
 import YouTube from "react-youtube";

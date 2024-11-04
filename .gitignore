@@ -28,3 +28,18 @@ go.work
 package-lock.json
 
 db.sqlite3
+
+.env
+
+*.js
+
+**/*.js
+
+client/.next/**
+client/.env
+
+!client/tailwind.config.js
+!client/postcss.config.js
+!client/tsconfig.json
+!client/.prettierrc.js
+
