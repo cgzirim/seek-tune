@@ -52,7 +52,7 @@ npm start
 In a separate terminal window:
 ```
 cd seek-tune
-go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
+go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5005)]
 ```
 #### ▸ Download a Song 📥 
 Note: A link from Spotify's mobile app won't work. You can copy the link from either the desktop or web app.

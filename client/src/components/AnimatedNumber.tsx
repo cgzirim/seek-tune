@@ -28,8 +28,8 @@ const AnimatedNumber = ({
   const prevNumber = usePrevious(animateToNumber);
   const animateToNumberString = String(Math.abs(animateToNumber));
   const prevNumberString = String(Math.abs(prevNumber));
-  const animateToNumbersArr = Array.from(animateToNumberString, Number);
-  const prevNumbersArr = Array.from(prevNumberString, Number);
+  const animateToNumbersArr = Array.from(animateToNumberString, Number) as number[] | string[]
+  const prevNumbersArr = Array.from(prevNumberString, Number) as number[] | string[]
   const [onStarted, setOnStarted] = React.useState(false);
   const [onFinished, setOnFinished] = React.useState(false);
 
@@ -81,10 +81,10 @@ const AnimatedNumber = ({
 
   const [numberHeight, setNumberHeight] = React.useState(0);
 
-  const numberDivRef = React.useRef(null);
+  const numberDivRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    setNumberHeight(numberDivRef.current.clientHeight);
+    setNumberHeight(numberDivRef.current?.clientHeight ?? 0);
   }, [animateToNumber]);
 
   return (
@@ -112,7 +112,7 @@ const AnimatedNumber = ({
                 <motion.div
                   initial={{ y: 0 }}
                   animate={{
-                    y: -1 * (numberHeight * animateToNumbersArr[index]),
+                    y: -1 * (numberHeight * animateToNumbersArr[index as string]),
                   }}
                   transition={transition}
                   onAnimationStart={() => setOnStarted(true)}
