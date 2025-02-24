@@ -1,8 +1,9 @@
+'use client';
 import React, { useEffect, useState, useRef } from "react";
 import io from "socket.io-client";
-import Form from "./components/Form";
-import Listen from "./components/Listen";
-import CarouselSliders from "./components/CarouselSliders";
+import SearchByURLForm from "../components/SearchByURLForm";
+import Listen from "../components/Listen";
+import CarouselSliders from "../components/CarouselSliders";
 import { FaMicrophoneLines } from "react-icons/fa6";
 import { LiaLaptopSolid } from "react-icons/lia";
 import { ToastContainer, toast, Slide } from "react-toastify";
@@ -10,14 +11,16 @@ import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
 
-import AnimatedNumber from "./components/AnimatedNumber";
+import AnimatedNumber from "../components/AnimatedNumber";
+import Loader from '../components/Loader';
+import SearchByContentHashForm from '@/components/SearchByContentHashForm';
 
-const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5005";
 
 var socket = io(server);
 
-function App() {
-  const [stream, setStream] = useState();
+const Page = (): JSX.Element => {
+  const [stream, setStream] = useState<MediaStream | undefined>(undefined);
   const [matches, setMatches] = useState([]);
   const [totalSongs, setTotalSongs] = useState(10);
   const [isListening, setisListening] = useState(false);
@@ -148,9 +151,11 @@ function App() {
       setisListening(true);
       sendRecordingRef.current = true;
 
-      const chunks = [];
+      const chunks: Blob[] = [];
       mediaRecorder.ondataavailable = function (e) {
-        chunks.push(e.data);
+        if (e.data) {
+          chunks.push(e.data);
+        }
       };
 
       // Stop recording after 20 seconds
@@ -167,18 +172,18 @@ function App() {
 
         reader.readAsArrayBuffer(blob);
         reader.onload = async (event) => {
-          const arrayBuffer = event.target.result;
+          const arrayBuffer = event.target?.result;
 
           // get record duration
-          const arrayBufferCopy = arrayBuffer.slice(0);
+          const arrayBufferCopy = arrayBuffer?.slice(0);
           const audioContext = new AudioContext();
           const audioBufferDecoded = await audioContext.decodeAudioData(
-            arrayBufferCopy
+            arrayBufferCopy as ArrayBuffer
           );
           const recordDuration = audioBufferDecoded.duration;
 
           var binary = "";
-          var bytes = new Uint8Array(arrayBuffer);
+          var bytes = new Uint8Array(arrayBufferCopy as ArrayBuffer);
           var len = bytes.byteLength;
           for (var i = 0; i < len; i++) {
             binary += String.fromCharCode(bytes[i]);
@@ -207,7 +212,7 @@ function App() {
     }
   }
 
-  function downloadRecording(blob) {
+  function downloadRecording(blob: Blob) {
     const blobUrl = URL.createObjectURL(blob);
 
     // Create a download link
@@ -219,12 +224,12 @@ function App() {
   }
 
   function cleanUp() {
-    const currentStream = streamRef.current;
+    const currentStream = streamRef.current as MediaStream | undefined;
     if (currentStream) {
       currentStream.getTracks().forEach((track) => track.stop());
     }
 
-    setStream(null);
+    setStream(undefined);
     setisListening(false);
   }
 
@@ -246,7 +251,14 @@ function App() {
       <div className="TopHeader">
         <h2 style={{ color: "#374151" }}>SeekTune</h2>
         <h4 style={{ display: "flex", justifyContent: "flex-end" }}>
-          <AnimatedNumber includeComma={true} animateToNumber={totalSongs} />
+          <AnimatedNumber
+            includeComma={true}
+            animateToNumber={totalSongs}
+            fontStyle={{ color: "#374151" }}
+            delay={0}
+            onStart={() => {}}
+            onFinish={() => {}}
+          />
           &nbsp;Songs
         </h4>
       </div>
@@ -285,7 +297,9 @@ function App() {
       <div className="youtube">
         <CarouselSliders matches={matches} />
       </div>
-      <Form socket={socket} toast={toast} />
+      
+      <SearchByURLForm socket={socket} toast={toast} />
+      <SearchByContentHashForm socket={socket} toast={toast} />
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -302,4 +316,4 @@ function App() {
   );
 }
 
-export default App;
+export default Page;

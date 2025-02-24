@@ -52,7 +52,7 @@ func main() {
 	case "serve":
 		serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
 		protocol := serveCmd.String("proto", "http", "Protocol to use (http or https)")
-		port := serveCmd.String("p", "5000", "Port to use")
+		port := serveCmd.String("p", "5005", "Port to use")
 		serveCmd.Parse(os.Args[2:])
 		serve(*protocol, *port)
 	case "erase":
