@@ -47,8 +47,8 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 		return nil, time.Since(startTime), err
 	}
 
-	matches := map[uint32][][2]uint32{} // songID -> [(sampleTime, dbTime)]
-	timestamps := map[uint32][]uint32{}
+	matches := map[uint32][][2]uint32{}        // songID -> [(sampleTime, dbTime)]
+	timestamps := map[uint32]uint32{}          // songID -> earliest timestamp
 	targetZones := map[uint32]map[uint32]int{} // songID -> timestamp -> count
 
 	for address, couples := range m {
@@ -57,7 +57,10 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 				matches[couple.SongID],
 				[2]uint32{sampleFingerprint[address].AnchorTimeMs, couple.AnchorTimeMs},
 			)
-			timestamps[couple.SongID] = append(timestamps[couple.SongID], couple.AnchorTimeMs)
+
+			if existingTime, ok := timestamps[couple.SongID]; !ok || couple.AnchorTimeMs < existingTime {
+				timestamps[couple.SongID] = couple.AnchorTimeMs
+			}
 
 			if _, ok := targetZones[couple.SongID]; !ok {
 				targetZones[couple.SongID] = make(map[uint32]int)
@@ -83,11 +86,7 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 			continue
 		}
 
-		sort.Slice(timestamps[songID], func(i, j int) bool {
-			return timestamps[songID][i] < timestamps[songID][j]
-		})
-
-		match := Match{songID, song.Title, song.Artist, song.YouTubeID, timestamps[songID][0], points}
+		match := Match{songID, song.Title, song.Artist, song.YouTubeID, timestamps[songID], points}
 		matchList = append(matchList, match)
 	}
 
