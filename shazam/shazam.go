@@ -18,21 +18,21 @@ type Match struct {
 	Score      float64
 }
 
-// FindMatches processes the audio samples and finds matches in the database
-func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) ([]Match, time.Duration, error) {
+// FindMatches analyzes the audio sample to find matching songs in the database.
+func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) ([]Match, time.Duration, error) {
 	startTime := time.Now()
 	logger := utils.GetLogger()
 
-	spectrogram, err := Spectrogram(audioSamples, sampleRate)
+	spectrogram, err := Spectrogram(audioSample, sampleRate)
 	if err != nil {
 		return nil, time.Since(startTime), fmt.Errorf("failed to get spectrogram of samples: %v", err)
 	}
 
 	peaks := ExtractPeaks(spectrogram, audioDuration)
-	fingerprints := Fingerprint(peaks, utils.GenerateUniqueID())
+	sampleFingerprint := Fingerprint(peaks, utils.GenerateUniqueID())
 
-	addresses := make([]uint32, 0, len(fingerprints))
-	for address := range fingerprints {
+	addresses := make([]uint32, 0, len(sampleFingerprint))
+	for address := range sampleFingerprint {
 		addresses = append(addresses, address)
 	}
 
@@ -53,7 +53,10 @@ func FindMatches(audioSamples []float64, audioDuration float64, sampleRate int) 
 
 	for address, couples := range m {
 		for _, couple := range couples {
-			matches[couple.SongID] = append(matches[couple.SongID], [2]uint32{fingerprints[address].AnchorTimeMs, couple.AnchorTimeMs})
+			matches[couple.SongID] = append(
+				matches[couple.SongID],
+				[2]uint32{sampleFingerprint[address].AnchorTimeMs, couple.AnchorTimeMs},
+			)
 			timestamps[couple.SongID] = append(timestamps[couple.SongID], couple.AnchorTimeMs)
 
 			if _, ok := targetZones[couple.SongID]; !ok {
@@ -122,7 +125,8 @@ func filterMatches(
 	return filteredMatches
 }
 
-// AnalyzeRelativeTiming checks for consistent relative timing and returns a score
+// analyzeRelativeTiming calculates a score for each song based on the
+// relative timing between the song and the sample's anchor times.
 func analyzeRelativeTiming(matches map[uint32][][2]uint32) map[uint32]float64 {
 	scores := make(map[uint32]float64)
 	for songID, times := range matches {
