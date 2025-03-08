@@ -4,20 +4,20 @@ import (
 	"math"
 )
 
-// Fft performs the Fast Fourier Transform on the input signal.
+// FFT computes the Fast Fourier Transform (FFT) of the input data,
+// converting the signal from the time domain to the frequency domain.
+// For better understanding, refer to this video: https://www.youtube.com/watch?v=spUNpyF58BY
 func FFT(input []float64) []complex128 {
-	// Convert input to complex128
 	complexArray := make([]complex128, len(input))
 	for i, v := range input {
 		complexArray[i] = complex(v, 0)
 	}
 
 	fftResult := make([]complex128, len(complexArray))
-	copy(fftResult, complexArray) // Copy input to result buffer
+	copy(fftResult, complexArray)
 	return recursiveFFT(fftResult)
 }
 
-// recursiveFFT performs the recursive FFT algorithm.
 func recursiveFFT(complexArray []complex128) []complex128 {
 	N := len(complexArray)
 	if N <= 1 {
