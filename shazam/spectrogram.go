@@ -14,19 +14,17 @@ const (
 	hopSize     = freqBinSize / 32
 )
 
-func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
-	lpf := NewLowPassFilter(maxFreq, float64(sampleRate))
-	filteredSamples := lpf.Filter(samples)
+func Spectrogram(sample []float64, sampleRate int) ([][]complex128, error) {
+	filteredSample := LowPassFilter(maxFreq, float64(sampleRate), sample)
 
-	downsampledSamples, err := Downsample(filteredSamples, sampleRate, sampleRate/dspRatio)
+	downsampledSample, err := Downsample(filteredSample, sampleRate, sampleRate/dspRatio)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't downsample audio samples: %v", err)
+		return nil, fmt.Errorf("couldn't downsample audio sample: %v", err)
 	}
 
-	numOfWindows := len(downsampledSamples) / (freqBinSize - hopSize)
+	numOfWindows := len(downsampledSample) / (freqBinSize - hopSize)
 	spectrogram := make([][]complex128, numOfWindows)
 
-	// Apply Hamming window function
 	window := make([]float64, freqBinSize)
 	for i := range window {
 		window[i] = 0.54 - 0.46*math.Cos(2*math.Pi*float64(i)/(float64(freqBinSize)-1))
@@ -36,12 +34,12 @@ func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
 	for i := 0; i < numOfWindows; i++ {
 		start := i * hopSize
 		end := start + freqBinSize
-		if end > len(downsampledSamples) {
-			end = len(downsampledSamples)
+		if end > len(downsampledSample) {
+			end = len(downsampledSample)
 		}
 
 		bin := make([]float64, freqBinSize)
-		copy(bin, downsampledSamples[start:end])
+		copy(bin, downsampledSample[start:end])
 
 		// Apply Hamming window
 		for j := range window {
@@ -52,6 +50,29 @@ func Spectrogram(samples []float64, sampleRate int) ([][]complex128, error) {
 	}
 
 	return spectrogram, nil
+}
+
+// LowPassFilter is a first-order low-pass filter that attenuates high
+// frequencies above the cutoffFrequency.
+// It uses the transfer function H(s) = 1 / (1 + sRC), where RC is the time constant.
+func LowPassFilter(cutoffFrequency, sampleRate float64, input []float64) []float64 {
+	rc := 1.0 / (2 * math.Pi * cutoffFrequency)
+	dt := 1.0 / sampleRate
+	alpha := dt / (rc + dt)
+
+	filteredSignal := make([]float64, len(input))
+	var prevOutput float64 = 0
+
+	for i, x := range input {
+		if i == 0 {
+			filteredSignal[i] = x * alpha
+		} else {
+
+			filteredSignal[i] = alpha*x + (1-alpha)*prevOutput
+		}
+		prevOutput = filteredSignal[i]
+	}
+	return filteredSignal
 }
 
 // Downsample downsamples the input audio from originalSampleRate to targetSampleRate

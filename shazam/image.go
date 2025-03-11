@@ -11,11 +11,9 @@ import (
 
 // ConvertSpectrogramToImage converts a spectrogram to a heat map image
 func SpectrogramToImage(spectrogram [][]complex128, outputPath string) error {
-	// Determine dimensions of the spectrogram
 	numWindows := len(spectrogram)
 	numFreqBins := len(spectrogram[0])
 
-	// Create a new grayscale image
 	img := image.NewGray(image.Rect(0, 0, numFreqBins, numWindows))
 
 	// Scale the values in the spectrogram to the range [0, 255]
@@ -38,7 +36,6 @@ func SpectrogramToImage(spectrogram [][]complex128, outputPath string) error {
 		}
 	}
 
-	// Save the image to a PNG file
 	file, err := os.Create(outputPath)
 	if err != nil {
 		return err

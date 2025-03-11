@@ -11,7 +11,6 @@ const (
 )
 
 // Fingerprint generates fingerprints from a list of peaks and stores them in an array.
-// The fingerprints are encoded using a 32-bit integer format and stored in an array.
 // Each fingerprint consists of an address and a couple.
 // The address is a hash. The couple contains the anchor time and the song ID.
 func Fingerprint(peaks []Peak, songID uint32) map[uint32]models.Couple {
