@@ -15,8 +15,7 @@ const (
 )
 
 func Spectrogram(sample []float64, sampleRate int) ([][]complex128, error) {
-	lpf := NewLowPassFilter(maxFreq, float64(sampleRate))
-	filteredSample := lpf.Filter(sample)
+	filteredSample := LowPassFilter(maxFreq, float64(sampleRate), sample)
 
 	downsampledSample, err := Downsample(filteredSample, sampleRate, sampleRate/dspRatio)
 	if err != nil {
@@ -51,6 +50,29 @@ func Spectrogram(sample []float64, sampleRate int) ([][]complex128, error) {
 	}
 
 	return spectrogram, nil
+}
+
+// LowPassFilter is a first-order low-pass filter that attenuates high
+// frequencies above the cutoffFrequency.
+// It uses the transfer function H(s) = 1 / (1 + sRC), where RC is the time constant.
+func LowPassFilter(cutoffFrequency, sampleRate float64, input []float64) []float64 {
+	rc := 1.0 / (2 * math.Pi * cutoffFrequency)
+	dt := 1.0 / sampleRate
+	alpha := dt / (rc + dt)
+
+	filteredSignal := make([]float64, len(input))
+	var prevOutput float64 = 0
+
+	for i, x := range input {
+		if i == 0 {
+			filteredSignal[i] = x * alpha
+		} else {
+
+			filteredSignal[i] = alpha*x + (1-alpha)*prevOutput
+		}
+		prevOutput = filteredSignal[i]
+	}
+	return filteredSignal
 }
 
 // Downsample downsamples the input audio from originalSampleRate to targetSampleRate

@@ -1,3 +1,6 @@
+//go:build !js && !wasm
+// +build !js,!wasm
+
 package shazam
 
 import (
@@ -21,7 +24,6 @@ type Match struct {
 // FindMatches analyzes the audio sample to find matching songs in the database.
 func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) ([]Match, time.Duration, error) {
 	startTime := time.Now()
-	logger := utils.GetLogger()
 
 	spectrogram, err := Spectrogram(audioSample, sampleRate)
 	if err != nil {
@@ -30,6 +32,21 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 
 	peaks := ExtractPeaks(spectrogram, audioDuration)
 	sampleFingerprint := Fingerprint(peaks, utils.GenerateUniqueID())
+
+	sampleFingerprintMap := make(map[uint32]uint32)
+	for address, couple := range sampleFingerprint {
+		sampleFingerprintMap[address] = couple.AnchorTimeMs
+	}
+
+	matches, _, err := FindMatchesFGP(sampleFingerprintMap)
+
+	return matches, time.Since(startTime), nil
+}
+
+// FindMatchesFGP uses the sample fingerprint to find matching songs in the database.
+func FindMatchesFGP(sampleFingerprint map[uint32]uint32) ([]Match, time.Duration, error) {
+	startTime := time.Now()
+	logger := utils.GetLogger()
 
 	addresses := make([]uint32, 0, len(sampleFingerprint))
 	for address := range sampleFingerprint {
@@ -55,7 +72,7 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 		for _, couple := range couples {
 			matches[couple.SongID] = append(
 				matches[couple.SongID],
-				[2]uint32{sampleFingerprint[address].AnchorTimeMs, couple.AnchorTimeMs},
+				[2]uint32{sampleFingerprint[address], couple.AnchorTimeMs},
 			)
 
 			if existingTime, ok := timestamps[couple.SongID]; !ok || couple.AnchorTimeMs < existingTime {
