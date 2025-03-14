@@ -159,6 +159,7 @@ func serve(protocol, port string) {
 
 func serveHTTP(socketServer *socketio.Server, serveHTTPS bool, port string) {
 	http.Handle("/socket.io/", socketServer)
+	http.Handle("/", http.FileServer(http.Dir("static")))
 
 	if serveHTTPS {
 		httpsAddr := ":" + port

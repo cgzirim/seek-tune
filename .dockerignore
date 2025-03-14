@@ -1,6 +1,3 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
 # Binaries for programs and plugins
 *.exe
 *.ogg
@@ -22,9 +19,10 @@
 
 # Go workspace file
 go.work
-**/songs/**
+**/songs
 .vscode
 
 package-lock.json
+
 *sqlite3
 .env

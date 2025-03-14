@@ -1,0 +1,21 @@
+version: '3.1'
+services:
+  seek-tune:
+    image: 'seek-tune'
+    build: .
+    restart: unless-stopped
+    ports:
+      - 8080:5000
+    env_file: .env
+    environment:
+      DB_USER: $DB_USER
+      DB_PASSWORD: $DB_PASSWORD
+      DB_NAME: $DB_NAME
+      DB_HOST: $DB_HOST
+      DB_PORT: $DB_PORT
+
+      REACT_APP_BACKEND_URL: $REACT_APP_BACKEND_URL
+
+    volumes:
+      - ./songs:/home/seek-tune/songs
+      - ./db:/home/seek-tune/db
