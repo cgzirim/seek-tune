@@ -1,18 +1,10 @@
 package utils
 
 import (
-	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"log/slog"
+	"io"
 	"os"
-	"song-recognition/models"
-	"song-recognition/wav"
-	"strings"
-	"time"
-
-	"github.com/mdobak/go-xerrors"
 )
 
 func DeleteFile(filePath string) error {
@@ -29,6 +21,36 @@ func CreateFolder(folderPath string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func MoveFile(sourcePath string, destinationPath string) error {
+	srcFile, err := os.Open(sourcePath)
+	if err != nil {
+		return err
+	}
+
+	destFile, err := os.Create(destinationPath)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	err = srcFile.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(sourcePath)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -71,53 +93,4 @@ func FloatsToBytes(data []float64, bitsPerSample int) ([]byte, error) {
 	}
 
 	return byteData, nil
-}
-
-func ProcessRecording(recData *models.RecordData, saveRecording bool) ([]float64, error) {
-	decodedAudioData, err := base64.StdEncoding.DecodeString(recData.Audio)
-	if err != nil {
-		return nil, err
-	}
-
-	now := time.Now()
-	fileName := fmt.Sprintf("%04d_%02d_%02d_%02d_%02d_%02d.wav",
-		now.Second(), now.Minute(), now.Hour(),
-		now.Day(), now.Month(), now.Year(),
-	)
-	filePath := "tmp/" + fileName
-
-	err = wav.WriteWavFile(filePath, decodedAudioData, recData.SampleRate, recData.Channels, recData.SampleSize)
-	if err != nil {
-		return nil, err
-	}
-
-	reformatedWavFile, err := wav.ReformatWAV(filePath, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	wavInfo, _ := wav.ReadWavInfo(reformatedWavFile)
-	samples, _ := wav.WavBytesToSamples(wavInfo.Data)
-
-	if saveRecording {
-		logger := GetLogger()
-		ctx := context.Background()
-
-		err := CreateFolder("recordings")
-		if err != nil {
-			err := xerrors.New(err)
-			logger.ErrorContext(ctx, "Failed create folder.", slog.Any("error", err))
-		}
-
-		newFilePath := strings.Replace(reformatedWavFile, "tmp/", "recordings/", 1)
-		err = os.Rename(reformatedWavFile, newFilePath)
-		if err != nil {
-			logger.ErrorContext(ctx, "Failed to move file.", slog.Any("error", err))
-		}
-	}
-
-	DeleteFile(fileName)
-	DeleteFile(reformatedWavFile)
-
-	return samples, nil
 }

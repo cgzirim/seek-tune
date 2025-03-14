@@ -313,7 +313,7 @@ func saveSong(filePath string, force bool) error {
 	wavFile := fileName + ".wav"
 	sourcePath := filepath.Join(filepath.Dir(filePath), wavFile)
 	newFilePath := filepath.Join(SONGS_DIR, wavFile)
-	err = os.Rename(sourcePath, newFilePath)
+	err = utils.MoveFile(sourcePath, newFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temporary file to output file: %v", err)
 	}
