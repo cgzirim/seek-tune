@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // WavHeader defines the structure of a WAV header
@@ -196,6 +197,14 @@ func GetMetadata(filePath string) (FFmpegMetadata, error) {
 	err = json.Unmarshal(out.Bytes(), &metadata)
 	if err != nil {
 		return metadata, err
+	}
+
+	// convert all keys of the Tags map to lowercase
+	for k, v := range metadata.Format.Tags {
+		metadata.Format.Tags[strings.ToLower(k)] = v
+	}
+	for k, v := range metadata.Streams[0].Tags {
+		metadata.Streams[0].Tags[strings.ToLower(k)] = v
 	}
 
 	return metadata, nil
