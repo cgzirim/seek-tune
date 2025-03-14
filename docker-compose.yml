@@ -8,6 +8,7 @@ services:
       - 8080:5000
     env_file: .env
     environment:
+      DB_TYPE: $DB_TYPE
       DB_USER: $DB_USER
       DB_PASSWORD: $DB_PASSWORD
       DB_NAME: $DB_NAME
