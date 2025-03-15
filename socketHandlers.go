@@ -10,6 +10,7 @@ import (
 	"song-recognition/shazam"
 	"song-recognition/spotify"
 	"song-recognition/utils"
+	"song-recognition/wav"
 	"strings"
 
 	socketio "github.com/googollee/go-socket.io"
@@ -186,7 +187,7 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 		return
 	}
 
-	samples, err := utils.ProcessRecording(&recData, true)
+	samples, err := wav.ProcessRecording(&recData, true)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "Failed to process recording.", slog.Any("error", err))
