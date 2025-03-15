@@ -35,7 +35,7 @@ func createTables(db *sql.DB) error {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         artist TEXT NOT NULL,
-        ytID TEXT UNIQUE,
+        ytID TEXT,
         key TEXT NOT NULL UNIQUE
     );
     `
