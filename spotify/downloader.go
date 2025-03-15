@@ -307,7 +307,7 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	err = dbclient.StoreFingerprints(fingerprints)
 	if err != nil {
 		dbclient.DeleteSongByID(songID)
-		return fmt.Errorf("error to storing fingerpring: %v", err)
+		return fmt.Errorf("error to storing fingerprint: %v", err)
 	}
 
 	fmt.Printf("Fingerprint for %v by %v saved in DB successfully\n", songTitle, songArtist)
