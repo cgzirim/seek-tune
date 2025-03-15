@@ -46,7 +46,7 @@ func NewDBClient() (DBClient, error) {
 		return NewMongoClient(dbUri)
 
 	case "sqlite":
-		return NewSQLiteClient("db.sqlite3")
+		return NewSQLiteClient("db/db.sqlite3")
 
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", DBtype)

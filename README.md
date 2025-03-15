@@ -40,6 +40,12 @@ cd seek-tune/client
 npm install
 ```
 
+## Docker 🐋 
+
+Should you choose to run as a docker container, the docker compose in the root of the project can be used, to start the app with the command `docker-compose up -d`. With the first run, the docker image will be built using the Dockerfile also found in the root of the project. If you need to rebuild the image after the first run of docker compose, the image can be built with the `docker build .` (or `docker-compose up --build -d`) command from the root of the project.
+
+*Note: Only the features available in the app UI are available while running the docker container.*
+
 ## Usage :bicyclist:
 
 #### ▸ Start the Client App 🏃‍♀️‍➡️ 

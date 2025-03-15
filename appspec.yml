@@ -1,7 +1,7 @@
 version: 0.0
 os: linux
 files:
-  - source: /
+  - source: server/
     destination: /home/ubuntu/song-recognition
 hooks:
   BeforeInstall:
