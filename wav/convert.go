@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"song-recognition/utils"
 	"strings"
 )
 
@@ -43,7 +44,7 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, err e
 	}
 
 	// Rename the temporary file to the output file
-	err = os.Rename(tmpFile, outputFile)
+	err = utils.MoveFile(tmpFile, outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to rename temporary file to output file: %v", err)
 	}

@@ -297,9 +297,12 @@ func saveSong(filePath string, force bool) error {
 		return fmt.Errorf("failed to get YouTube ID for song: %v", err)
 	}
 
+	fileName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
 	if track.Title == "" {
-		return fmt.Errorf("no title found in metadata")
+		// If title is empty, use the file name
+		track.Title = fileName
 	}
+
 	if track.Artist == "" {
 		return fmt.Errorf("no artist found in metadata")
 	}
@@ -310,11 +313,10 @@ func saveSong(filePath string, force bool) error {
 	}
 
 	// Move song in wav format to songs directory
-	fileName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
 	wavFile := fileName + ".wav"
 	sourcePath := filepath.Join(filepath.Dir(filePath), wavFile)
 	newFilePath := filepath.Join(SONGS_DIR, wavFile)
-	err = os.Rename(sourcePath, newFilePath)
+	err = utils.MoveFile(sourcePath, newFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temporary file to output file: %v", err)
 	}
