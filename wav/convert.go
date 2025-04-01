@@ -51,6 +51,8 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, err e
 	return outputFile, nil
 }
 
+// ReformatWAV converts a given WAV file to the specified number of channels,
+// either mono (1 channel) or stereo (2 channels).
 func ReformatWAV(inputFilePath string, channels int) (reformatedFilePath string, errr error) {
 	if channels < 1 || channels > 2 {
 		channels = 1
