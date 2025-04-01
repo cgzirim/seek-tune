@@ -9,20 +9,28 @@ import { ToastContainer, toast, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { MediaRecorder, register } from "extendable-media-recorder";
 import { connect } from "extendable-media-recorder-wav-encoder";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
+
 
 import AnimatedNumber from "./components/AnimatedNumber";
 
 const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+// https://seek-tune-rq4gn.ondigitalocean.app/
 
 var socket = io(server);
 
 function App() {
+  let ffmpegLoaded = false;
+  const ffmpeg = new FFmpeg();
+  const uploadRecording = true
+  const isPhone = window.innerWidth <= 550
   const [stream, setStream] = useState();
   const [matches, setMatches] = useState([]);
   const [totalSongs, setTotalSongs] = useState(10);
   const [isListening, setisListening] = useState(false);
   const [audioInput, setAudioInput] = useState("device"); // or "mic"
-  const [isPhone, setIsPhone] = useState(window.innerWidth <= 550);
+  const [genFingerprint, setGenFingerprint] = useState(null);
   const [registeredMediaEncoder, setRegisteredMediaEncoder] = useState(false);
 
   const streamRef = useRef(stream);
@@ -78,8 +86,38 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => { 
+    (async () => {
+      try {
+        const go = new window.Go();
+        const result = await WebAssembly.instantiateStreaming(
+          fetch("/main.wasm"), 
+          go.importObject
+        );
+        go.run(result.instance);
+
+        if (typeof window.generateFingerprint === "function") {
+          setGenFingerprint(() => window.generateFingerprint);
+        }
+
+      } catch (error) {
+        console.error("Error loading WASM:", error);
+      }
+    })();
+  }, []);
+
   async function record() {
     try {
+      if (!genFingerprint) {
+        console.error("WASM is not loaded yet.");
+        return;
+      }
+
+      if (!ffmpegLoaded) {
+        await ffmpeg.load();
+        ffmpegLoaded = true;
+      }
+
       const mediaDevice =
         audioInput === "device"
           ? navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices)
@@ -113,33 +151,6 @@ function App() {
         track.stop();
       }
 
-      /** Attempt to change sampleRate
-      const audioContext = new AudioContext({
-        sampleRate: 44100,
-      });
-      const mediaStreamAudioSourceNode = new MediaStreamAudioSourceNode(
-        audioContext,
-        { mediaStream: audioStream }
-      );
-      const mediaStreamAudioDestinationNode =
-        new MediaStreamAudioDestinationNode(audioContext, {
-          channelCount: 1,
-        });
-
-      mediaStreamAudioSourceNode.connect(mediaStreamAudioDestinationNode);
-
-      const mediaRecorder = new MediaRecorder(
-        mediaStreamAudioDestinationNode.stream,
-        { mimeType: "audio/wav" }
-      );
-
-      const settings = mediaStreamAudioDestinationNode.stream
-        .getAudioTracks()[0]
-        .getSettings();
-
-      console.log("Settings: ", settings);
-      */
-
       const mediaRecorder = new MediaRecorder(audioStream, {
         mimeType: "audio/wav",
       });
@@ -158,45 +169,77 @@ function App() {
         mediaRecorder.stop();
       }, 20000);
 
-      mediaRecorder.addEventListener("stop", () => {
+      mediaRecorder.addEventListener("stop", async () => {
         const blob = new Blob(chunks, { type: "audio/wav" });
-        const reader = new FileReader();
 
         cleanUp();
-        // downloadRecording(blob);
 
-        reader.readAsArrayBuffer(blob);
+        const inputFile = 'input.wav';
+        const outputFile = 'output_mono.wav';
+
+        // Convert audio to mono with a sample rate of 44100 Hz
+        await ffmpeg.writeFile(inputFile, await fetchFile(blob))
+        const exitCode = await ffmpeg.exec([
+          '-i', inputFile,
+          '-c', 'pcm_s16le',
+          '-ar', '44100',
+          '-ac', '1',
+          '-f', 'wav',
+          outputFile
+        ]);
+        if (exitCode !== 0) {
+          throw new Error(`FFmpeg exec failed with exit code: ${exitCode}`);
+        }
+
+        const monoData = await ffmpeg.readFile(outputFile);
+        const monoBlob = new Blob([monoData.buffer], { type: 'audio/wav' });
+
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(monoBlob);
         reader.onload = async (event) => {
           const arrayBuffer = event.target.result;
-
-          // get record duration
-          const arrayBufferCopy = arrayBuffer.slice(0);
           const audioContext = new AudioContext();
-          const audioBufferDecoded = await audioContext.decodeAudioData(
-            arrayBufferCopy
-          );
-          const recordDuration = audioBufferDecoded.duration;
+          const arrayBufferCopy = arrayBuffer.slice(0);
+          const audioBufferDecoded = await audioContext.decodeAudioData(arrayBufferCopy);
+          
+          const audioData = audioBufferDecoded.getChannelData(0);
+          const audioArray = Array.from(audioData);
 
-          var binary = "";
-          var bytes = new Uint8Array(arrayBuffer);
-          var len = bytes.byteLength;
-          for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
+          const result = genFingerprint(audioArray, audioBufferDecoded.sampleRate);
+          if (result.error !== 0) {
+            toast["error"](() => <div>An error occured</div>)
+            console.log("An error occured: ", result)
+            return
           }
 
-          // Convert byte array to base64
-          const rawAudio = btoa(binary);
-          const audioConfig = audioStream.getAudioTracks()[0].getSettings();
-
-          const recordData = {
-            audio: rawAudio,
-            duration: recordDuration,
-            channels: audioConfig.channelCount,
-            sampleRate: audioConfig.sampleRate,
-            sampleSize: audioConfig.sampleSize,
-          };
+          const fingerprintMap = result.data.reduce((dict, item) => {
+            dict[item.address] = item.anchorTime;
+            return dict;
+          }, {});
 
           if (sendRecordingRef.current) {
+            socket.emit("newFingerprint", JSON.stringify({ fingerprint: fingerprintMap }));
+          }
+
+          if (uploadRecording) {
+            var bytes = new Uint8Array(arrayBuffer);
+            var rawAudio = "";
+            for (var i = 0; i < bytes.byteLength; i++) {
+              rawAudio += String.fromCharCode(bytes[i]);
+            }
+
+            const dataView = new DataView(arrayBuffer);
+
+            const recordData = {
+              audio: btoa(rawAudio),
+              channels: dataView.getUint16(22, true),
+              sampleRate: dataView.getUint16(24, true),
+              sampleSize: dataView.getUint16(34, true),
+              duration: audioBufferDecoded.duration,
+            };
+
+            console.log("Record data: ", recordData);
+
             socket.emit("newRecording", JSON.stringify(recordData));
           }
         };
@@ -207,10 +250,11 @@ function App() {
     }
   }
 
+
+
   function downloadRecording(blob) {
     const blobUrl = URL.createObjectURL(blob);
 
-    // Create a download link
     const downloadLink = document.createElement("a");
     downloadLink.href = blobUrl;
     downloadLink.download = "recorded_audio.wav";
@@ -244,7 +288,7 @@ function App() {
   return (
     <div className="App">
       <div className="TopHeader">
-        <h2 style={{ color: "#374151" }}>SeekTune</h2>
+        <h2 style={{ color: "#374151" }}>!Shazam</h2>
         <h4 style={{ display: "flex", justifyContent: "flex-end" }}>
           <AnimatedNumber includeComma={true} animateToNumber={totalSongs} />
           &nbsp;Songs
