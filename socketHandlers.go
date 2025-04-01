@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"song-recognition/utils"
 	"song-recognition/wav"
 	"strings"
+	"time"
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/mdobak/go-xerrors"
@@ -176,6 +178,7 @@ func handleSongDownload(socket socketio.Conn, spotifyURL string) {
 	}
 }
 
+// handleNewRecording saves new recorded audio snippet to a WAV file.
 func handleNewRecording(socket socketio.Conn, recordData string) {
 	logger := utils.GetLogger()
 	ctx := context.Background()
@@ -187,14 +190,46 @@ func handleNewRecording(socket socketio.Conn, recordData string) {
 		return
 	}
 
-	samples, err := wav.ProcessRecording(&recData, true)
+	err := utils.CreateFolder("recordings")
 	if err != nil {
 		err := xerrors.New(err)
-		logger.ErrorContext(ctx, "Failed to process recording.", slog.Any("error", err))
+		logger.ErrorContext(ctx, "Failed create folder.", slog.Any("error", err))
+	}
+
+	now := time.Now()
+	fileName := fmt.Sprintf("%04d_%02d_%02d_%02d_%02d_%02d.wav",
+		now.Second(), now.Minute(), now.Hour(),
+		now.Day(), now.Month(), now.Year(),
+	)
+	filePath := "recordings/" + fileName
+
+	decodedAudioData, err := base64.StdEncoding.DecodeString(recData.Audio)
+	if err != nil {
+		err := xerrors.New(err)
+		logger.ErrorContext(ctx, "Failed to decode base64", slog.Any("error", err))
+	}
+
+	err = wav.WriteWavFile(filePath, decodedAudioData, recData.SampleRate, recData.Channels, recData.SampleSize)
+	if err != nil {
+		err := xerrors.New(err)
+		logger.ErrorContext(ctx, "Failed write wav file.", slog.Any("error", err))
+	}
+}
+
+func handleNewFingerprint(socket socketio.Conn, fingerprintData string) {
+	logger := utils.GetLogger()
+	ctx := context.Background()
+
+	var data struct {
+		Fingerprint map[uint32]uint32 `json:"fingerprint"`
+	}
+	if err := json.Unmarshal([]byte(fingerprintData), &data); err != nil {
+		err := xerrors.New(err)
+		logger.ErrorContext(ctx, "Failed to unmarshal fingerprint data.", slog.Any("error", err))
 		return
 	}
 
-	matches, _, err := shazam.FindMatches(samples, recData.Duration, recData.SampleRate)
+	matches, _, err := shazam.FindMatchesFGP(data.Fingerprint)
 	if err != nil {
 		err := xerrors.New(err)
 		logger.ErrorContext(ctx, "failed to get matches.", slog.Any("error", err))
