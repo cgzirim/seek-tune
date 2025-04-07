@@ -1,4 +1,9 @@
 version: '3.1'
+
+volumes:
+  seek-tune-db:
+  seek-tune-songs:
+
 services:
   seek-tune:
     image: 'seek-tune'
@@ -22,5 +27,5 @@ services:
         REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-http://localhost:8080}
 
     volumes:
-      - ./songs:/home/seek-tune/songs
-      - ./db:/home/seek-tune/db
+      - seek-tune-db:/home/seek-tune/db
+      - seek-tune-songs:/home/seek-tune/songs
