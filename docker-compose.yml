@@ -1,0 +1,31 @@
+version: '3.1'
+
+volumes:
+  seek-tune-db:
+  seek-tune-songs:
+
+services:
+  seek-tune:
+    image: 'seek-tune'
+    restart: unless-stopped
+    ports:
+      - 8080:5000
+
+    environment:
+      DB_TYPE: ${DB_TYPE:-sqlite}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-seek_tune_db}
+      DB_HOST: ${DB_HOST:-localhost}
+      DB_PORT: ${DB_PORT:-27017}
+
+      REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-http://localhost:8080}
+
+    build:
+      context: .
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-http://localhost:8080}
+
+    volumes:
+      - seek-tune-db:/home/seek-tune/db
+      - seek-tune-songs:/home/seek-tune/songs

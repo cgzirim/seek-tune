@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 start_server() {
-    cd /home/ubuntu/song-recognition
+    cd /home/ubuntu/song-recognition/server
 
     export SERVE_HTTPS="true"
     export CERT_KEY="/etc/letsencrypt/live/localport.online/privkey.pem"

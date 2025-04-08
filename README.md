@@ -25,22 +25,35 @@ Additionally, it currently only supports song files in WAV format.
 - NPM: To run the client (frontend).
 
 ### Steps
-Clone the repository:
+📦 Clone the repository:
 ```
 git clone https://github.com/cgzirim/seek-tune.git
+cd seek-tune
 ```
+#### 🐳 Set Up with Docker
+Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+1. Build and run the application:
+   ```Bash
+   docker-compose up --build
+   ```
+   Visit the app at http://localhost:8080
+2. To stop the application:
+   ```Bash
+   docker-compose down
+   ```
+#### 💻 Set Up Natively
 Install dependencies for the backend
 ```
-cd seek-tune
+cd server
 go get ./...
 ```
 Install dependencies for the client
 ```
-cd seek-tune/client
+cd client
 npm install
 ```
 
-## Usage :bicyclist:
+## Usage (Native Setup) :bicyclist:
 
 #### ▸ Start the Client App 🏃‍♀️‍➡️ 
 ```
@@ -51,7 +64,7 @@ npm start
 #### ▸ Start the Backend App 🏃‍♀️ 
 In a separate terminal window:
 ```
-cd seek-tune
+cd server
 go run *.go serve [-proto <http|https> (default: http)] [-port <port number> (default: 5000)]
 ```
 #### ▸ Download a Song 📥 
