@@ -23,6 +23,7 @@
 # Go workspace file
 go.work
 **songs**
+**recordings**
 .vscode
 
 package-lock.json
