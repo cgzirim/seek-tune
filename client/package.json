@@ -5,21 +5,16 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
+    "eslint-config-react-app": "^7.0.1",
     "extendable-media-recorder": "^9.1.15",
     "extendable-media-recorder-wav-encoder": "^7.0.109",
     "framer-motion": "^11.0.25",
     "react": "^18.2.0",
-    "react-animated-numbers": "^0.1.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.0.1",
     "react-scripts": "^5.0.1",
-    "react-slick": "^0.30.2",
     "react-toastify": "^8.1.0",
     "react-youtube": "^10.1.0",
-    "slick-carousel": "^1.8.1",
     "socket.io-client": "^2.5.0",
     "web-vitals": "^2.1.4"
   },
@@ -39,8 +34,5 @@
     ">0.2%",
     "not dead",
     "not op_mini all"
-  ],
-  "devDependencies": {
-    "react-error-overlay": "^6.0.9"
-  }
+  ]
 }
