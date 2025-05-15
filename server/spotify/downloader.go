@@ -28,13 +28,12 @@ const DELETE_SONG_FILE = false
 var yellow = color.New(color.FgYellow)
 
 func DlSingleTrack(url, savePath string) (int, error) {
+	fmt.Println("Getting track info (" + url + ")...")
 	trackInfo, err := TrackInfo(url)
 	if err != nil {
 		return 0, err
 	}
 
-	fmt.Println("Getting track info...")
-	time.Sleep(500 * time.Millisecond)
 	track := []Track{*trackInfo}
 
 	fmt.Println("Now, downloading track...")
@@ -198,6 +197,7 @@ func downloadYTaudio(id, path, filePath string) error {
 	client := youtube.Client{}
 	video, err := client.GetVideo(id)
 	if err != nil {
+		fmt.Println("Error: ", err)
 		return err
 	}
 
