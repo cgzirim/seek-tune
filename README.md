@@ -41,6 +41,26 @@ Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose
    ```Bash
    docker-compose down
    ```
+
+#### 🎧 Spotify API
+
+To access Spotify metadata, the project now uses the official [Spotify Web API](https://developer.spotify.com/documentation/web-api/). This requires creating a developer application and retrieving a client ID and client secret.
+
+Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started#request-an-access-token) to:
+
+1. Create a Spotify developer app.
+2. Copy your **Client ID** and **Client Secret**.
+
+Create a file named `credentials.json` in the `server/` directory with the following structure:
+
+```json
+{
+  "client_id": "your-client-id",
+  "client_secret": "your-client-secret"
+}
+```
+The application will automatically read this file to fetch and cache access tokens. If the token is expired or missing, a new one will be requested.
+
 #### 💻 Set Up Natively
 Install dependencies for the backend
 ```
@@ -77,6 +97,8 @@ go run *.go download <https://open.spotify.com/.../...>
 go run *.go save [-f|--force] <path_to_song_file_or_dir_of_songs>
 ```
 The `-f` or `--force` flag allows saving the song even if a YouTube ID is not found. Note that the frontend will not display matches without a YouTube ID.  
+
+Note: if `*.go` does not work try to use `./...` instead.
   
 #### ▸ Find matches for a song/recording 🔎
 ```
