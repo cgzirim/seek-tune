@@ -183,9 +183,9 @@ func isValidPattern(url, pattern string) bool {
 }
 
 func TrackInfo(url string) (*Track, error) {
-	re := regexp.MustCompile(`open\.spotify\.com\/track\/([a-zA-Z0-9]{22})`)
+	re := regexp.MustCompile(`open\.spotify\.com\/(?:intl-.+\/)?track\/([a-zA-Z0-9]{22})(\?si=[a-zA-Z0-9]{16})?`)
 	matches := re.FindStringSubmatch(url)
-	if len(matches) != 2 {
+	if len(matches) <= 2 {
 		return nil, errors.New("invalid track URL")
 	}
 	id := matches[1]
