@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 	"os"
+	"song-recognition/utils"
 
 	"github.com/tidwall/gjson"
 )
@@ -28,16 +29,14 @@ type Track struct {
 	Duration             int
 }
 
-
 const (
 	tokenURL          = "https://accounts.spotify.com/api/token"
-	credentialsPath   = "credentials.json"
 	cachedTokenPath   = "token.json"
 )
 
 type credentials struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	ClientID     string
+	ClientSecret string
 }
 
 type tokenResponse struct {
@@ -52,21 +51,17 @@ type cachedToken struct {
 }
 
 func loadCredentials() (*credentials, error) {
-	file, err := os.Open(credentialsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			absPath, _ := os.Getwd()
-			return nil, fmt.Errorf("credentials.json not found. Please create it in the same directory:\n%s/%s", absPath, credentialsPath)
-		}
-		return nil, err
-	}
-	defer file.Close()
+	clientID := utils.GetEnv("SPOTIFY_CLIENT_ID", "")
+	clientSecret := utils.GetEnv("SPOTIFY_CLIENT_SECRET", "")
 
-	var creds credentials
-	if err := json.NewDecoder(file).Decode(&creds); err != nil {
-		return nil, fmt.Errorf("failed to parse credentials.json: %w", err)
+	if clientID == "" || clientSecret == "" {
+		return nil, fmt.Errorf("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET environment variables not set")
 	}
-	return &creds, nil
+
+	return &credentials{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+	}, nil
 }
 
 

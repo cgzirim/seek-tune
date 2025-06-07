@@ -51,14 +51,17 @@ Follow the [official getting started guide](https://developer.spotify.com/docume
 1. Create a Spotify developer app.
 2. Copy your **Client ID** and **Client Secret**.
 
-Create a file named `credentials.json` in the `server/` directory with the following structure:
+##### Setting up Credentials
+Instead of using a credentials.json file, the application now reads these values from environment variables.
 
-```json
-{
-  "client_id": "your-client-id",
-  "client_secret": "your-client-secret"
-}
+Create a .env file in the server directory  with the following content:
+
 ```
+SPOTIFY_CLIENT_ID=your-client-id
+SPOTIFY_CLIENT_SECRET=your-client-secret
+```
+
+Make sure this .env file is loaded into your environment before running the server.
 The application will automatically read this file to fetch and cache access tokens. If the token is expired or missing, a new one will be requested.
 
 #### 💻 Set Up Natively
