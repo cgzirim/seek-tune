@@ -96,6 +96,7 @@ func GetYoutubeId(track Track) (string, error) {
 		allowedDurationRangeEnd := songDurationInSeconds + durationMatchThreshold
 		resultSongDuration := convertStringDurationToSeconds(result.Duration)
 		if resultSongDuration >= allowedDurationRangeStart && resultSongDuration <= allowedDurationRangeEnd {
+			fmt.Println("INFO: ", fmt.Sprintf("Found song with id '%s'", result.ID))
 			return result.ID, nil
 		}
 	}

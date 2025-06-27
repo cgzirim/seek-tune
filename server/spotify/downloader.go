@@ -28,16 +28,16 @@ const DELETE_SONG_FILE = false
 var yellow = color.New(color.FgYellow)
 
 func DlSingleTrack(url, savePath string) (int, error) {
+	logger := utils.GetLogger()
+	logger.Info("Getting track info", slog.String("url", url))
 	trackInfo, err := TrackInfo(url)
 	if err != nil {
 		return 0, err
 	}
 
-	fmt.Println("Getting track info...")
-	time.Sleep(500 * time.Millisecond)
 	track := []Track{*trackInfo}
 
-	fmt.Println("Now, downloading track...")
+	logger.Info("Now downloading track")
 	totalTracksDownloaded, err := dlTrack(track, savePath)
 	if err != nil {
 		return 0, err
@@ -47,13 +47,14 @@ func DlSingleTrack(url, savePath string) (int, error) {
 }
 
 func DlPlaylist(url, savePath string) (int, error) {
+	logger := utils.GetLogger()
 	tracks, err := PlaylistInfo(url)
 	if err != nil {
 		return 0, err
 	}
 
 	time.Sleep(1 * time.Second)
-	fmt.Println("Now, downloading playlist...")
+	logger.Info("Now downloading playlist")
 	totalTracksDownloaded, err := dlTrack(tracks, savePath)
 	if err != nil {
 		return 0, err
@@ -63,13 +64,14 @@ func DlPlaylist(url, savePath string) (int, error) {
 }
 
 func DlAlbum(url, savePath string) (int, error) {
+	logger := utils.GetLogger()
 	tracks, err := AlbumInfo(url)
 	if err != nil {
 		return 0, err
 	}
 
 	time.Sleep(1 * time.Second)
-	fmt.Println("Now, downloading album...")
+	logger.Info("Now downloading album")
 	totalTracksDownloaded, err := dlTrack(tracks, savePath)
 	if err != nil {
 		return 0, err
@@ -119,7 +121,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				logger.ErrorContext(ctx, "error checking song existence", slog.Any("error", err))
 			}
 			if keyExists {
-				logMessage := fmt.Sprintf("'%s' by '%s' already exits.", trackCopy.Title, trackCopy.Artist)
+				logMessage := fmt.Sprintf("'%s' by '%s' already exists.", trackCopy.Title, trackCopy.Artist)
 				logger.Info(logMessage)
 				return
 			}
@@ -164,7 +166,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				utils.DeleteFile(wavFilePath)
 			}
 
-			fmt.Printf("'%s' by '%s' was downloaded\n", track.Title, track.Artist)
+			logger.Info(fmt.Sprintf("'%s' by '%s' was downloaded", track.Title, track.Artist))
 			downloadedTracks = append(downloadedTracks, fmt.Sprintf("%s, %s", track.Title, track.Artist))
 			results <- 1
 		}(t)
@@ -179,25 +181,30 @@ func dlTrack(tracks []Track, path string) (int, error) {
 		totalTracks++
 	}
 
-	fmt.Println("Total tracks downloaded:", totalTracks)
+	logger.Info(fmt.Sprintf("Total tracks downloaded: %d", totalTracks))
 	return totalTracks, nil
 
 }
 
 /* github.com/kkdai/youtube */
 func downloadYTaudio(id, path, filePath string) error {
+	logger := utils.GetLogger()
 	dir, err := os.Stat(path)
 	if err != nil {
-		panic(err)
+		logger.Error("Error accessing path", slog.Any("error", err))
+		return err
 	}
 
 	if !dir.IsDir() {
-		return errors.New("the path is not valid (not a dir)")
+		err := errors.New("the path is not valid (not a dir)")
+		logger.Error("Invalid directory path", slog.Any("error", err))
+		return err
 	}
 
 	client := youtube.Client{}
 	video, err := client.GetVideo(id)
 	if err != nil {
+		logger.Error("Error getting YouTube video", slog.Any("error", err))
 		return err
 	}
 
@@ -215,16 +222,19 @@ func downloadYTaudio(id, path, filePath string) error {
 	var fileSize int64
 	file, err := os.Create(filePath)
 	if err != nil {
+		logger.Error("Error creating file", slog.Any("error", err))
 		return err
 	}
 
 	for fileSize == 0 {
 		stream, _, err := client.GetStream(video, &formats[0])
 		if err != nil {
+			logger.Error("Error getting stream", slog.Any("error", err))
 			return err
 		}
 
 		if _, err = io.Copy(file, stream); err != nil {
+			logger.Error("Error copying stream to file", slog.Any("error", err))
 			return err
 		}
 
@@ -236,6 +246,7 @@ func downloadYTaudio(id, path, filePath string) error {
 }
 
 func addTags(file string, track Track) error {
+	logger := utils.GetLogger()
 	// Create a temporary file name by appending "2" before the extension
 	tempFile := file
 	index := strings.Index(file, ".wav")
@@ -258,11 +269,13 @@ func addTags(file string, track Track) error {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		logger.Error("Failed to add tags", slog.Any("error", err), slog.String("output", string(out)))
 		return fmt.Errorf("failed to add tags: %v, output: %s", err, string(out))
 	}
 
 	// Rename the temporary file to the original filename
 	if err := os.Rename(tempFile, file); err != nil {
+		logger.Error("Failed to rename file", slog.Any("error", err))
 		return fmt.Errorf("failed to rename file: %v", err)
 	}
 
@@ -270,34 +283,41 @@ func addTags(file string, track Track) error {
 }
 
 func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error {
+	logger := utils.GetLogger()
 	dbclient, err := db.NewDBClient()
 	if err != nil {
+		logger.Error("Failed to create DB client", slog.Any("error", err))
 		return err
 	}
 	defer dbclient.Close()
 
 	wavFilePath, err := wav.ConvertToWAV(songFilePath, 1)
 	if err != nil {
+		logger.Error("Failed to convert to WAV", slog.Any("error", err))
 		return err
 	}
 
 	wavInfo, err := wav.ReadWavInfo(wavFilePath)
 	if err != nil {
+		logger.Error("Failed to read WAV info", slog.Any("error", err))
 		return err
 	}
 
 	samples, err := wav.WavBytesToSamples(wavInfo.Data)
 	if err != nil {
+		logger.Error("Error converting WAV bytes to samples", slog.Any("error", err))
 		return fmt.Errorf("error converting wav bytes to float64: %v", err)
 	}
 
 	spectro, err := shazam.Spectrogram(samples, wavInfo.SampleRate)
 	if err != nil {
+		logger.Error("Error creating spectrogram", slog.Any("error", err))
 		return fmt.Errorf("error creating spectrogram: %v", err)
 	}
 
 	songID, err := dbclient.RegisterSong(songTitle, songArtist, ytID)
 	if err != nil {
+		logger.Error("Failed to register song", slog.Any("error", err))
 		return err
 	}
 
@@ -307,14 +327,16 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	err = dbclient.StoreFingerprints(fingerprints)
 	if err != nil {
 		dbclient.DeleteSongByID(songID)
-		return fmt.Errorf("error to storing fingerprint: %v", err)
+		logger.Error("Failed to store fingerprints", slog.Any("error", err))
+		return fmt.Errorf("error storing fingerprint: %v", err)
 	}
 
-	fmt.Printf("Fingerprint for %v by %v saved in DB successfully\n", songTitle, songArtist)
+	logger.Info(fmt.Sprintf("Fingerprint for %v by %v saved in DB successfully", songTitle, songArtist))
 	return nil
 }
 
 func getYTID(trackCopy *Track) (string, error) {
+	logger := utils.GetLogger()
 	ytID, err := GetYoutubeId(*trackCopy)
 	if ytID == "" || err != nil {
 		return "", err
@@ -327,9 +349,8 @@ func getYTID(trackCopy *Track) (string, error) {
 	}
 
 	if ytidExists { // try to get the YouTube ID again
-		logMessage := fmt.Sprintf("YouTube ID (%s) exists. Trying again...\n", ytID)
-		fmt.Println("WARN: ", logMessage)
-		slog.Warn(logMessage)
+		logMessage := fmt.Sprintf("YouTube ID (%s) exists. Trying again...", ytID)
+		logger.Warn(logMessage)
 
 		ytID, err = GetYoutubeId(*trackCopy)
 		if ytID == "" || err != nil {
