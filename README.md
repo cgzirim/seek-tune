@@ -22,7 +22,8 @@ Additionally, it currently only supports song files in WAV format.
 ### Prerequisites
 - Golang: [Install Golang](https://golang.org/dl/)
 - FFmpeg: [Install FFmpeg](https://ffmpeg.org/download.html)
-- NPM: To run the client (frontend).
+- NPM: [Install Node](https://nodejs.org/en/download)
+- YT-DLP: [Install YT-DLP](https://github.com/yt-dlp/yt-dlp/wiki/Installation)
 
 ### Steps
 📦 Clone the repository:
