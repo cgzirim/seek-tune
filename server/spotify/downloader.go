@@ -2,9 +2,7 @@ package spotify
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -14,16 +12,16 @@ import (
 	"song-recognition/shazam"
 	"song-recognition/utils"
 	"song-recognition/wav"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/kkdai/youtube/v2"
 	"github.com/mdobak/go-xerrors"
 )
 
-const DELETE_SONG_FILE = false
+const DELETE_SONG_FILE = false // Set true to delete the song file after fingerprinting
 
 var yellow = color.New(color.FgYellow)
 
@@ -135,9 +133,9 @@ func dlTrack(tracks []Track, path string) (int, error) {
 
 			trackCopy.Title, trackCopy.Artist = correctFilename(trackCopy.Title, trackCopy.Artist)
 			fileName := fmt.Sprintf("%s - %s", trackCopy.Title, trackCopy.Artist)
-			filePath := filepath.Join(path, fileName+".m4a")
+			filePath := filepath.Join(path, fileName)
 
-			err = downloadYTaudio(ytID, path, filePath)
+			filePath, err = downloadYTaudio2(ytID, filePath)
 			if err != nil {
 				logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded", trackCopy.Title, trackCopy.Artist)
 				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
@@ -151,12 +149,10 @@ func dlTrack(tracks []Track, path string) (int, error) {
 				return
 			}
 
-			utils.DeleteFile(filepath.Join(path, fileName+".m4a"))
-
 			wavFilePath := filepath.Join(path, fileName+".wav")
 
 			if err := addTags(wavFilePath, *trackCopy); err != nil {
-				logMessage := fmt.Sprintf("Error adding tags: %s", filePath+".wav")
+				logMessage := fmt.Sprintf("Error adding tags: %s", wavFilePath)
 				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
 
 				return
@@ -186,65 +182,6 @@ func dlTrack(tracks []Track, path string) (int, error) {
 
 }
 
-/* github.com/kkdai/youtube */
-func downloadYTaudio(id, path, filePath string) error {
-	logger := utils.GetLogger()
-	dir, err := os.Stat(path)
-	if err != nil {
-		logger.Error("Error accessing path", slog.Any("error", err))
-		return err
-	}
-
-	if !dir.IsDir() {
-		err := errors.New("the path is not valid (not a dir)")
-		logger.Error("Invalid directory path", slog.Any("error", err))
-		return err
-	}
-
-	client := youtube.Client{}
-	video, err := client.GetVideo(id)
-	if err != nil {
-		logger.Error("Error getting YouTube video", slog.Any("error", err))
-		return err
-	}
-
-	/*
-		itag code: 140, container: m4a, content: audio, bitrate: 128k
-		change the FindByItag parameter to 139 if you want smaller files (but with a bitrate of 48k)
-		https://gist.github.com/sidneys/7095afe4da4ae58694d128b1034e01e2
-	*/
-	formats := video.Formats.Itag(140)
-
-	/* in some cases, when attempting to download the audio
-	using the library github.com/kkdai/youtube,
-	the download fails (and shows the file size as 0 bytes)
-	until the second or third attempt. */
-	var fileSize int64
-	file, err := os.Create(filePath)
-	if err != nil {
-		logger.Error("Error creating file", slog.Any("error", err))
-		return err
-	}
-
-	for fileSize == 0 {
-		stream, _, err := client.GetStream(video, &formats[0])
-		if err != nil {
-			logger.Error("Error getting stream", slog.Any("error", err))
-			return err
-		}
-
-		if _, err = io.Copy(file, stream); err != nil {
-			logger.Error("Error copying stream to file", slog.Any("error", err))
-			return err
-		}
-
-		fileSize, _ = GetFileSize(filePath)
-	}
-	defer file.Close()
-
-	return nil
-}
-
 func addTags(file string, track Track) error {
 	logger := utils.GetLogger()
 	// Create a temporary file name by appending "2" before the extension
@@ -255,7 +192,7 @@ func addTags(file string, track Track) error {
 		tempFile = baseName + "2" + ".wav" // Temporary filename ('/path/to/title - artist2.wav')
 	}
 
-	// Execute FFmpeg command to add metadata tags
+	// FFmpeg command to add metadata tags
 	cmd := exec.Command(
 		"ffmpeg",
 		"-i", file, // Input file path
@@ -291,7 +228,14 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	}
 	defer dbclient.Close()
 
-	wavFilePath, err := wav.ConvertToWAV(songFilePath, 1)
+	channelsStr := utils.GetEnv("SHZ_CHANNELS", "1")
+	channels, err := strconv.Atoi(channelsStr)
+	if err != nil {
+		logger.Error("Failed to convert channels to int", slog.Any("error", err))
+		return err
+	}
+
+	wavFilePath, err := wav.ConvertToWAV(songFilePath, channels)
 	if err != nil {
 		logger.Error("Failed to convert to WAV", slog.Any("error", err))
 		return err
@@ -302,6 +246,8 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 		logger.Error("Failed to read WAV info", slog.Any("error", err))
 		return err
 	}
+
+	// TODO: handle the case where there're 2 channels.
 
 	samples, err := wav.WavBytesToSamples(wavInfo.Data)
 	if err != nil {
