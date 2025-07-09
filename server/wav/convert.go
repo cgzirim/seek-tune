@@ -21,6 +21,10 @@ func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, err e
 	}
 
 	fileExt := filepath.Ext(inputFilePath)
+	if fileExt != ".wav" {
+		defer os.Remove(inputFilePath)
+	}
+
 	outputFile := strings.TrimSuffix(inputFilePath, fileExt) + ".wav"
 
 	// Output file may already exists. If it does FFmpeg will fail as
