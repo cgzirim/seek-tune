@@ -1,7 +1,10 @@
 package shazam
 
 import (
+	"fmt"
 	"song-recognition/models"
+	"song-recognition/utils"
+	"song-recognition/wav"
 )
 
 const (
@@ -43,4 +46,38 @@ func createAddress(anchor, target Peak) uint32 {
 	address := uint32(anchorFreq<<23) | uint32(targetFreq<<14) | deltaMs
 
 	return address
+}
+
+func FingerprintAudio(songFilePath string, songID uint32) (map[uint32]models.Couple, error) {
+	wavFilePath, err := wav.ConvertToWAV(songFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("error converting input file to WAV: %v", err)
+	}
+
+	wavInfo, err := wav.ReadWavInfo(wavFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading WAV info: %v", err)
+	}
+
+	fingerprint := make(map[uint32]models.Couple)
+
+	spectro, err := Spectrogram(wavInfo.LeftChannelSamples, wavInfo.SampleRate)
+	if err != nil {
+		return nil, fmt.Errorf("error creating spectrogram: %v", err)
+	}
+
+	peaks := ExtractPeaks(spectro, wavInfo.Duration)
+	utils.ExtendMap(fingerprint, Fingerprint(peaks, songID))
+
+	if wavInfo.Channels == 2 {
+		spectro, err = Spectrogram(wavInfo.RightChannelSamples, wavInfo.SampleRate)
+		if err != nil {
+			return nil, fmt.Errorf("error creating spectrogram for right channel: %v", err)
+		}
+
+		peaks = ExtractPeaks(spectro, wavInfo.Duration)
+		utils.ExtendMap(fingerprint, Fingerprint(peaks, songID))
+	}
+
+	return fingerprint, nil
 }
