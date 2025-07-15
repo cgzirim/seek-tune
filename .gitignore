@@ -29,3 +29,5 @@ go.work
 package-lock.json
 *sqlite3
 .env
+
+token.json
