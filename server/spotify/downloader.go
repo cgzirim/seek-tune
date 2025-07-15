@@ -12,7 +12,6 @@ import (
 	"song-recognition/shazam"
 	"song-recognition/utils"
 	"song-recognition/wav"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -228,49 +227,26 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	}
 	defer dbclient.Close()
 
-	channelsStr := utils.GetEnv("SHZ_CHANNELS", "1")
-	channels, err := strconv.Atoi(channelsStr)
-	if err != nil {
-		logger.Error("Failed to convert channels to int", slog.Any("error", err))
-		return err
-	}
-
-	wavFilePath, err := wav.ConvertToWAV(songFilePath, channels)
+	wavFilePath, err := wav.ConvertToWAV(songFilePath)
 	if err != nil {
 		logger.Error("Failed to convert to WAV", slog.Any("error", err))
 		return err
 	}
 
-	wavInfo, err := wav.ReadWavInfo(wavFilePath)
-	if err != nil {
-		logger.Error("Failed to read WAV info", slog.Any("error", err))
-		return err
-	}
-
-	// TODO: handle the case where there're 2 channels.
-
-	samples, err := wav.WavBytesToSamples(wavInfo.Data)
-	if err != nil {
-		logger.Error("Error converting WAV bytes to samples", slog.Any("error", err))
-		return fmt.Errorf("error converting wav bytes to float64: %v", err)
-	}
-
-	spectro, err := shazam.Spectrogram(samples, wavInfo.SampleRate)
-	if err != nil {
-		logger.Error("Error creating spectrogram", slog.Any("error", err))
-		return fmt.Errorf("error creating spectrogram: %v", err)
-	}
-
 	songID, err := dbclient.RegisterSong(songTitle, songArtist, ytID)
 	if err != nil {
 		logger.Error("Failed to register song", slog.Any("error", err))
-		return err
+		return fmt.Errorf("error registering song '%s' by '%s': %v", songTitle, songArtist, err)
 	}
 
-	peaks := shazam.ExtractPeaks(spectro, wavInfo.Duration)
-	fingerprints := shazam.Fingerprint(peaks, songID)
+	fingerprint, err := shazam.FingerprintAudio(wavFilePath, songID)
+	if err != nil {
+		dbclient.DeleteSongByID(songID)
+		logger.Error("Failed to create fingerprint", slog.String("wavFilePath", wavFilePath))
+		return fmt.Errorf("error generating fingerprint for %s by %s", songTitle, songArtist)
+	}
 
-	err = dbclient.StoreFingerprints(fingerprints)
+	err = dbclient.StoreFingerprints(fingerprint)
 	if err != nil {
 		dbclient.DeleteSongByID(songID)
 		logger.Error("Failed to store fingerprints", slog.Any("error", err))
