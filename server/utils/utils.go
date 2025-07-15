@@ -27,3 +27,9 @@ func GetEnv(key string, fallback ...string) string {
 	}
 	return ""
 }
+
+func ExtendMap[K comparable, V any](dest, src map[K]V) {
+	for k, v := range src {
+		dest[k] = v
+	}
+}
