@@ -34,19 +34,24 @@ const (
 var yellow = color.New(color.FgYellow)
 
 func find(filePath string) {
-	wavInfo, err := wav.ReadWavInfo(filePath)
+	wavFilePath, err := wav.ConvertToWAV(filePath)
 	if err != nil {
-		yellow.Println("Error reading wave info:", err)
+		yellow.Println("Error converting to WAV:", err)
 		return
 	}
 
-	samples, err := wav.WavBytesToSamples(wavInfo.Data)
+	fingerprint, err := shazam.FingerprintAudio(wavFilePath, utils.GenerateUniqueID())
 	if err != nil {
-		yellow.Println("Error converting to samples:", err)
+		yellow.Println("Error generating fingerprint for sample: ", err)
 		return
 	}
 
-	matches, searchDuration, err := shazam.FindMatches(samples, wavInfo.Duration, wavInfo.SampleRate)
+	sampleFingerprint := make(map[uint32]uint32)
+	for address, couple := range fingerprint {
+		sampleFingerprint[address] = couple.AnchorTimeMs
+	}
+
+	matches, searchDuration, err := shazam.FindMatchesFGP(sampleFingerprint)
 	if err != nil {
 		yellow.Println("Error finding matches:", err)
 		return
