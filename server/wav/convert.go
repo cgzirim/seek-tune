@@ -6,18 +6,26 @@ import (
 	"os/exec"
 	"path/filepath"
 	"song-recognition/utils"
+	"strconv"
 	"strings"
 )
 
 // ConvertToWAV converts an input audio file to WAV format with specified channels.
-func ConvertToWAV(inputFilePath string, channels int) (wavFilePath string, err error) {
+func ConvertToWAV(inputFilePath string) (wavFilePath string, err error) {
 	_, err = os.Stat(inputFilePath)
 	if err != nil {
 		return "", fmt.Errorf("input file does not exist: %v", err)
 	}
 
-	if channels < 1 || channels > 2 {
-		channels = 1
+	to_stereoStr := utils.GetEnv("FINGERPRINT_STEREO", "false")
+	to_stereo, err := strconv.ParseBool(to_stereoStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert env variable (%s) to bool: %v", "FINGERPRINT_STEREO", err)
+	}
+
+	channels := 1
+	if to_stereo {
+		channels = 2
 	}
 
 	fileExt := filepath.Ext(inputFilePath)
