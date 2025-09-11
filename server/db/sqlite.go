@@ -15,6 +15,15 @@ type SQLiteClient struct {
 }
 
 func NewSQLiteClient(dataSourceName string) (*SQLiteClient, error) {
+	// Add busy timeout param to DSN (milliseconds)
+	if !strings.Contains(dataSourceName, "_busy_timeout") {
+		if strings.Contains(dataSourceName, "?") {
+			dataSourceName += "&_busy_timeout=5000" // 5 seconds
+		} else {
+			dataSourceName += "?_busy_timeout=5000"
+		}
+	}
+
 	db, err := sql.Open("sqlite3", dataSourceName)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to SQLite: %s", err)
@@ -27,6 +36,7 @@ func NewSQLiteClient(dataSourceName string) (*SQLiteClient, error) {
 
 	return &SQLiteClient{db: db}, nil
 }
+
 
 // createTables creates the required tables if they don't exist
 func createTables(db *sql.DB) error {
@@ -100,21 +110,25 @@ func (db *SQLiteClient) GetCouples(addresses []uint32) (map[uint32][]models.Coup
 		if err != nil {
 			return nil, fmt.Errorf("error querying database: %s", err)
 		}
-		defer rows.Close()
 
 		var docCouples []models.Couple
 		for rows.Next() {
 			var couple models.Couple
 			if err := rows.Scan(&couple.AnchorTimeMs, &couple.SongID); err != nil {
+				rows.Close() // close before returning error
 				return nil, fmt.Errorf("error scanning row: %s", err)
 			}
 			docCouples = append(docCouples, couple)
 		}
+
+		rows.Close() // close explicitly after reading
+
 		couples[address] = docCouples
 	}
 
 	return couples, nil
 }
+
 
 func (db *SQLiteClient) TotalSongs() (int, error) {
 	var count int

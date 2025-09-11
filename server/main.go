@@ -9,6 +9,7 @@ import (
 	"song-recognition/utils"
 
 	"github.com/mdobak/go-xerrors"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -33,7 +34,8 @@ func main() {
 		fmt.Println("Expected 'find', 'download', 'erase', 'save', or 'serve' subcommands")
 		os.Exit(1)
 	}
-
+	_ = godotenv.Load()
+	
 	switch os.Args[1] {
 	case "find":
 		if len(os.Args) < 3 {

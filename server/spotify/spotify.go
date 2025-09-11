@@ -1,14 +1,19 @@
 package spotify
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
+	"os"
+	"song-recognition/utils"
 
 	"github.com/tidwall/gjson"
 )
@@ -25,29 +30,113 @@ type Track struct {
 }
 
 const (
-	tokenEndpoint       = "https://open.spotify.com/get_access_token?reason=transport&productType=web-player"
-	trackInitialPath    = "https://api-partner.spotify.com/pathfinder/v1/query?operationName=getTrack&variables="
-	playlistInitialPath = "https://api-partner.spotify.com/pathfinder/v1/query?operationName=fetchPlaylist&variables="
-	albumInitialPath    = "https://api-partner.spotify.com/pathfinder/v1/query?operationName=getAlbum&variables="
-	trackEndPath        = `{"persistedQuery":{"version":1,"sha256Hash":"e101aead6d78faa11d75bec5e36385a07b2f1c4a0420932d374d89ee17c70dd6"}}`
-	playlistEndPath     = `{"persistedQuery":{"version":1,"sha256Hash":"b39f62e9b566aa849b1780927de1450f47e02c54abf1e66e513f96e849591e41"}}`
-	albumEndPath        = `{"persistedQuery":{"version":1,"sha256Hash":"46ae954ef2d2fe7732b4b2b4022157b2e18b7ea84f70591ceb164e4de1b5d5d3"}}`
+	tokenURL          = "https://accounts.spotify.com/api/token"
+	cachedTokenPath   = "token.json"
 )
 
+type credentials struct {
+	ClientID     string
+	ClientSecret string
+}
+
+type tokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+type cachedToken struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func loadCredentials() (*credentials, error) {
+	clientID := utils.GetEnv("SPOTIFY_CLIENT_ID", "")
+	clientSecret := utils.GetEnv("SPOTIFY_CLIENT_SECRET", "")
+
+	if clientID == "" || clientSecret == "" {
+		return nil, fmt.Errorf("SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET environment variables not set")
+	}
+
+	return &credentials{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+	}, nil
+}
+
+
+func saveToken(token string, expiresIn int) error {
+	ct := cachedToken{
+		Token:     token,
+		ExpiresAt: time.Now().Add(time.Duration(expiresIn) * time.Second),
+	}
+	data, err := json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(cachedTokenPath, data, 0644)
+}
+
+func loadCachedToken() (string, error) {
+	data, err := os.ReadFile(cachedTokenPath)
+	if err != nil {
+		return "", err
+	}
+	var ct cachedToken
+	if err := json.Unmarshal(data, &ct); err != nil {
+		return "", err
+	}
+	if time.Now().After(ct.ExpiresAt) {
+		return "", errors.New("token expired")
+	}
+	return ct.Token, nil
+}
+
 func accessToken() (string, error) {
-	resp, err := http.Get(tokenEndpoint)
+	// Try using cached token
+	token, err := loadCachedToken()
+	if err == nil {
+		return token, nil
+	}
+
+	// Fallback: request a new token
+	creds, err := loadCredentials()
+	if err != nil {
+		return "", err
+	}
+
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", creds.ClientID)
+	data.Set("client_secret", creds.ClientSecret)
+
+	req, err := http.NewRequest("POST", tokenURL, bytes.NewBufferString(data.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", errors.New("token request failed (have a look at credentials.json): " + string(body))
+	}
+
+	var tr tokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {
 		return "", err
 	}
 
-	accessToken := gjson.Get(string(body), "accessToken")
-	return accessToken.String(), nil
+	if err := saveToken(tr.AccessToken, tr.ExpiresIn); err != nil {
+		return "", err
+	}
+
+	return tr.AccessToken, nil
 }
 
 /* requests to playlist/track endpoints */
@@ -89,85 +178,164 @@ func isValidPattern(url, pattern string) bool {
 }
 
 func TrackInfo(url string) (*Track, error) {
-	trackPattern := `^https:\/\/open\.spotify\.com\/track\/[a-zA-Z0-9]{22}\?si=[a-zA-Z0-9]{16}$`
-	if !isValidPattern(url, trackPattern) {
-		return nil, errors.New("invalid track url")
+	re := regexp.MustCompile(`open\.spotify\.com\/(?:intl-.+\/)?track\/([a-zA-Z0-9]{22})(\?si=[a-zA-Z0-9]{16})?`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) <= 2 {
+		return nil, errors.New("invalid track URL")
 	}
+	id := matches[1]
 
-	id := getID(url)
-	endpointQuery := EncodeParam(fmt.Sprintf(`{"uri":"spotify:track:%s"}`, id))
-	endpoint := trackInitialPath + endpointQuery + "&extensions=" + EncodeParam(trackEndPath)
-
+	endpoint := fmt.Sprintf("https://api.spotify.com/v1/tracks/%s", id)
 	statusCode, jsonResponse, err := request(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("error on getting track info: %w", err)
+		return nil, fmt.Errorf("error getting track info: %w", err)
+	}
+	if statusCode != 200 {
+		return nil, fmt.Errorf("non-200 status code: %d", statusCode)
 	}
 
-	if statusCode != 200 {
-		return nil, fmt.Errorf("received non-200 status code: %d", statusCode)
+	var result struct {
+		Name     string `json:"name"`
+		Duration int    `json:"duration_ms"`
+		Album    struct {
+			Name string `json:"name"`
+		} `json:"album"`
+		Artists []struct {
+			Name string `json:"name"`
+		} `json:"artists"`
+	}
+	if err := json.Unmarshal([]byte(jsonResponse), &result); err != nil {
+		return nil, err
 	}
 
 	var allArtists []string
-
-	if firstArtist := gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(); firstArtist != "" {
-		allArtists = append(allArtists, firstArtist)
+	for _, a := range result.Artists {
+		allArtists = append(allArtists, a.Name)
 	}
 
-	if artists := gjson.Get(jsonResponse, "data.trackUnion.otherArtists.items").Array(); len(artists) > 0 {
-		for _, artist := range artists {
-			if profile := artist.Get("profile").Map(); len(profile) > 0 {
-				if name := profile["name"].String(); name != "" {
-					allArtists = append(allArtists, name)
-				}
+	return (&Track{
+		Title:    result.Name,
+		Artist:   allArtists[0],
+		Artists:  allArtists,
+		Album:    result.Album.Name,
+		Duration: result.Duration / 1000,
+	}).buildTrack(), nil
+}
+
+
+func PlaylistInfo(url string) ([]Track, error) {
+	re := regexp.MustCompile(`open\.spotify\.com\/playlist\/([a-zA-Z0-9]{22})`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) != 2 {
+		return nil, errors.New("invalid playlist URL")
+	}
+	id := matches[1]
+
+	var allTracks []Track
+	offset := 0
+	limit := 100
+
+	for {
+		endpoint := fmt.Sprintf("https://api.spotify.com/v1/playlists/%s/tracks?offset=%d&limit=%d", id, offset, limit)
+		statusCode, jsonResponse, err := request(endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("request error: %w", err)
+		}
+		if statusCode != 200 {
+			return nil, fmt.Errorf("non-200 status: %d", statusCode)
+		}
+
+		var result struct {
+			Items []struct {
+				Track struct {
+					Name     string `json:"name"`
+					Duration int    `json:"duration_ms"`
+					Album    struct {
+						Name string `json:"name"`
+					} `json:"album"`
+					Artists []struct {
+						Name string `json:"name"`
+					} `json:"artists"`
+				} `json:"track"`
+			} `json:"items"`
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal([]byte(jsonResponse), &result); err != nil {
+			return nil, err
+		}
+
+		for _, item := range result.Items {
+			track := item.Track
+			var artists []string
+			for _, a := range track.Artists {
+				artists = append(artists, a.Name)
 			}
+			allTracks = append(allTracks, *(&Track{
+				Title:    track.Name,
+				Artist:   artists[0],
+				Artists:  artists,
+				Duration: track.Duration / 1000,
+				Album:    track.Album.Name,
+			}).buildTrack())
+		}
+
+		offset += limit
+		if offset >= result.Total {
+			break
 		}
 	}
 
-	durationInSeconds := int(gjson.Get(jsonResponse, "data.trackUnion.duration.totalMilliseconds").Int())
-	durationInSeconds = durationInSeconds / 1000
-
-	track := &Track{
-		Title:    gjson.Get(jsonResponse, "data.trackUnion.name").String(),
-		Artist:   gjson.Get(jsonResponse, "data.trackUnion.firstArtist.items.0.profile.name").String(),
-		Artists:  allArtists,
-		Duration: durationInSeconds,
-		Album:    gjson.Get(jsonResponse, "data.trackUnion.albumOfTrack.name").String(),
-	}
-
-	return track.buildTrack(), nil
-}
-
-func PlaylistInfo(url string) ([]Track, error) {
-	playlistPattern := `^https:\/\/open\.spotify\.com\/playlist\/[a-zA-Z0-9]{22}\?si=[a-zA-Z0-9]{16}$`
-	if !isValidPattern(url, playlistPattern) {
-		return nil, errors.New("invalid playlist url")
-	}
-
-	totalCount := "data.playlistV2.content.totalCount"
-	itemsArray := "data.playlistV2.content.items"
-	tracks, err := resourceInfo(url, "playlist", totalCount, itemsArray)
-	if err != nil {
-		return nil, err
-	}
-
-	return tracks, nil
+	return allTracks, nil
 }
 
 func AlbumInfo(url string) ([]Track, error) {
-	albumPattern := `^https:\/\/open\.spotify\.com\/album\/[a-zA-Z0-9-]{22}\?si=[a-zA-Z0-9_-]{22}$`
-	if !isValidPattern(url, albumPattern) {
-		return nil, errors.New("invalid album url")
+	re := regexp.MustCompile(`open\.spotify\.com\/album\/([a-zA-Z0-9]{22})`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) != 2 {
+		return nil, errors.New("invalid album URL")
+	}
+	id := matches[1]
+
+	endpoint := fmt.Sprintf("https://api.spotify.com/v1/albums/%s/tracks?limit=50", id)
+	statusCode, jsonResponse, err := request(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("error getting album info: %w", err)
+	}
+	if statusCode != 200 {
+		return nil, fmt.Errorf("non-200 status: %d", statusCode)
 	}
 
-	totalCount := "data.albumUnion.discs.items.0.tracks.totalCount"
-	itemsArray := "data.albumUnion.discs.items"
-	tracks, err := resourceInfo(url, "album", totalCount, itemsArray)
-	if err != nil {
+	var result struct {
+		Items []struct {
+			Name     string `json:"name"`
+			Duration int    `json:"duration_ms"`
+			Artists  []struct {
+				Name string `json:"name"`
+			} `json:"artists"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(jsonResponse), &result); err != nil {
 		return nil, err
+	}
+
+	var tracks []Track
+	for _, item := range result.Items {
+		var artists []string
+		for _, a := range item.Artists {
+			artists = append(artists, a.Name)
+		}
+		tracks = append(tracks, *(&Track{
+			Title:    item.Name,
+			Artist:   artists[0],
+			Artists:  artists,
+			Duration: item.Duration / 1000,
+			Album:    "", // You can fetch full album info if needed
+		}).buildTrack())
 	}
 
 	return tracks, nil
 }
+
 
 /* returns playlist/album slice of tracks */
 func resourceInfo(url, resourceType, totalCount, itemList string) ([]Track, error) {
@@ -212,10 +380,10 @@ func jsonList(resourceType, id string, offset, limit int64) (string, error) {
 	var endpoint string
 	if resourceType == "playlist" {
 		endpointQuery = EncodeParam(fmt.Sprintf(`{"uri":"spotify:playlist:%s","offset":%d,"limit":%d}`, id, offset, limit))
-		endpoint = playlistInitialPath + endpointQuery + "&extensions=" + EncodeParam(playlistEndPath)
+		endpoint = endpointQuery
 	} else {
 		endpointQuery = EncodeParam(fmt.Sprintf(`{"uri":"spotify:album:%s","locale":"","offset":%d,"limit":%d}`, id, offset, limit))
-		endpoint = albumInitialPath + endpointQuery + "&extensions=" + EncodeParam(albumEndPath)
+		endpoint = endpointQuery
 	}
 
 	statusCode, jsonResponse, err := request(endpoint)
