@@ -1,4 +1,4 @@
-version: '3.1'
+version: "3.1"
 
 volumes:
   seek-tune-db:
@@ -6,7 +6,7 @@ volumes:
 
 services:
   seek-tune:
-    image: 'seek-tune'
+    image: "seek-tune"
     restart: unless-stopped
     ports:
       - 8080:5000
@@ -20,6 +20,8 @@ services:
       DB_PORT: ${DB_PORT:-27017}
 
       REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-http://localhost:8080}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
 
     build:
       context: .

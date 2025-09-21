@@ -19,6 +19,7 @@ WORKDIR /home/seek-tune
 
 COPY server/go.mod server/go.sum ./
 RUN go mod download
+RUN apt-get update && apt-get install -y ffmpeg
 
 COPY server/ ./
 ENV ENV=production
