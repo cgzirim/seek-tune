@@ -40,9 +40,9 @@ Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose
 
 #### 🎧 Spotify API Setup
 
-1. **Get credentials:** Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started) to create a Spotify app and obtain your **Client ID** and **Client Secret**.
+1. Get credentials: Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started) to create a Spotify app and obtain your **Client ID** and **Client Secret**.
 
-2. **Configure:** Create a `.env` file in the `server` directory:
+2. Configure: Create a `.env` file in the `server` directory:
    ```bash
    SPOTIFY_CLIENT_ID=your-client-id
    SPOTIFY_CLIENT_SECRET=your-client-secret
