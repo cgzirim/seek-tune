@@ -43,27 +43,17 @@ Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose
    docker-compose down
    ```
 
-#### 🎧 Spotify API
+#### 🎧 Spotify API Setup
 
-To access Spotify metadata, the project now uses the official [Spotify Web API](https://developer.spotify.com/documentation/web-api/). This requires creating a developer application and retrieving a client ID and client secret.
+1. **Get credentials:** Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started) to create a Spotify app and obtain your **Client ID** and **Client Secret**.
 
-Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started#request-an-access-token) to:
+2. **Configure:** Create a `.env` file in the `server` directory:
+   ```bash
+   SPOTIFY_CLIENT_ID=your-client-id
+   SPOTIFY_CLIENT_SECRET=your-client-secret
+   ```
 
-1. Create a Spotify developer app.
-2. Copy your **Client ID** and **Client Secret**.
-
-##### Setting up Credentials
-Instead of using a credentials.json file, the application now reads these values from environment variables.
-
-Create a .env file in the server directory  with the following content:
-
-```
-SPOTIFY_CLIENT_ID=your-client-id
-SPOTIFY_CLIENT_SECRET=your-client-secret
-```
-
-Make sure this .env file is loaded into your environment before running the server.
-The application will automatically read this file to fetch and cache access tokens. If the token is expired or missing, a new one will be requested.
+The app will automatically fetch and cache access tokens as needed.
 
 #### 💻 Set Up Natively
 Install dependencies for the backend
