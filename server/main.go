@@ -8,8 +8,8 @@ import (
 	"os"
 	"song-recognition/utils"
 
-	"github.com/mdobak/go-xerrors"
 	"github.com/joho/godotenv"
+	"github.com/mdobak/go-xerrors"
 )
 
 func main() {
@@ -32,10 +32,16 @@ func main() {
 
 	if len(os.Args) < 2 {
 		fmt.Println("Expected 'find', 'download', 'erase', 'save', or 'serve' subcommands")
+		fmt.Println("\nUsage examples:")
+		fmt.Println("  find <path_to_wav_file>")
+		fmt.Println("  download <spotify_url>")
+		fmt.Println("  erase [db | all]  (default: db)")
+		fmt.Println("  save [-f|--force] <path_to_file_or_dir>")
+		fmt.Println("  serve [-proto <http|https>] [-p <port>]")
 		os.Exit(1)
 	}
 	_ = godotenv.Load()
-	
+
 	switch os.Args[1] {
 	case "find":
 		if len(os.Args) < 3 {
@@ -58,7 +64,28 @@ func main() {
 		serveCmd.Parse(os.Args[2:])
 		serve(*protocol, *port)
 	case "erase":
-		erase(SONGS_DIR)
+		// Default is to clear only database (db mode)
+		dbOnly := true
+		all := false
+
+		if len(os.Args) > 2 {
+			subCmd := os.Args[2]
+			switch subCmd {
+			case "db":
+				dbOnly = true
+				all = false
+			case "all":
+				dbOnly = false
+				all = true
+			default:
+				fmt.Println("Usage: main.go erase [db | all]")
+				fmt.Println("  db  : only clear the database (default)")
+				fmt.Println("  all : clear database and songs folder")
+				os.Exit(1)
+			}
+		}
+
+		erase(SONGS_DIR, dbOnly, all)
 	case "save":
 		indexCmd := flag.NewFlagSet("save", flag.ExitOnError)
 		force := indexCmd.Bool("force", false, "save song with or without YouTube ID")
@@ -72,6 +99,12 @@ func main() {
 		save(filePath, *force)
 	default:
 		fmt.Println("Expected 'find', 'download', 'erase', 'save', or 'serve' subcommands")
+		fmt.Println("\nUsage examples:")
+		fmt.Println("  find <path_to_wav_file>")
+		fmt.Println("  download <spotify_url>")
+		fmt.Println("  erase [db | all]  (default: db)")
+		fmt.Println("  save [-f|--force] <path_to_file_or_dir>")
+		fmt.Println("  serve [-proto <http|https>] [-p <port>]")
 		os.Exit(1)
 	}
 }

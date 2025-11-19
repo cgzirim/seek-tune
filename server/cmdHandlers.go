@@ -199,7 +199,7 @@ func serveHTTP(socketServer *socketio.Server, serveHTTPS bool, port string) {
 	}
 }
 
-func erase(songsDir string) {
+func erase(songsDir string, dbOnly bool, all bool) {
 	logger := utils.GetLogger()
 	ctx := context.Background()
 
@@ -222,26 +222,31 @@ func erase(songsDir string) {
 		logger.ErrorContext(ctx, msg, slog.Any("error", err))
 	}
 
-	// delete song files
-	err = filepath.Walk(songsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	fmt.Println("Database cleared")
 
-		if !info.IsDir() {
-			ext := filepath.Ext(path)
-			if ext == ".wav" || ext == ".m4a" {
-				err := os.Remove(path)
-				if err != nil {
-					return err
+	// delete song files only if -all flag is set
+	if all {
+		err = filepath.Walk(songsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if !info.IsDir() {
+				ext := filepath.Ext(path)
+				if ext == ".wav" || ext == ".m4a" {
+					err := os.Remove(path)
+					if err != nil {
+						return err
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			msg := fmt.Sprintf("Error walking through directory %s: %v\n", songsDir, err)
+			logger.ErrorContext(ctx, msg, slog.Any("error", err))
 		}
-		return nil
-	})
-	if err != nil {
-		msg := fmt.Sprintf("Error walking through directory %s: %v\n", songsDir, err)
-		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+		fmt.Println("Songs folder cleared")
 	}
 
 	fmt.Println("Erase complete")

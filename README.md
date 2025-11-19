@@ -95,7 +95,12 @@ go run *.go find <path-to-wav-file>
 ```
 #### ▸ Delete fingerprints and songs 🗑️ 
 ```
+# Delete only database (default)
 go run *.go erase
+go run *.go erase db
+
+# Delete both database and song files
+go run *.go erase all
 ```
 
 ## Example :film_projector:  
