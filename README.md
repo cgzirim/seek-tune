@@ -8,15 +8,10 @@
 </a>
 </p>
 
-<p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view" target="_blank">Demo in Video</a></p>
+<p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view" target="_blank">Demo in Video</a> | <a href="https://www.youtube.com/watch?v=a0CVCcb0RJM" target="_blank">How it was made (YouTube)</a></p>
 
 ## Description 🎼
 SeekTune is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
-
-[//]: # (## Current Limitations
-While the algorithm works excellently in matching a song with its exact file, it doesn't always find the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help :slightly_smiling_face:.   
-Additionally, it currently only supports song files in WAV format.
-)
 
 ## Installation :desktop_computer:
 ### Prerequisites
