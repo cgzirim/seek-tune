@@ -92,7 +92,7 @@ function App() {
       try {
         const go = new window.Go();
         const result = await WebAssembly.instantiateStreaming(
-          fetch("/main.wasm"), 
+          fetch("/fingerprint.wasm"), 
           go.importObject
         );
         go.run(result.instance);
