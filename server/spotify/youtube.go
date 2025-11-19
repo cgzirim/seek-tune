@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"song-recognition/utils"
 
-	ytdlib "github.com/kkdai/youtube/v2"
-
 	"errors"
 	"io"
 	"io/ioutil"
@@ -223,62 +221,8 @@ func ytSearch(searchTerm string, limit int) (results []*SearchResult, err error)
 	return results, nil
 }
 
-// downloadYTaudio1 downloads audio from a YouTube video using the github.com/kkdai/youtube library.
-func downloadYTaudio1(id, outputFilePath string) (string, error) {
-	logger := utils.GetLogger()
-
-	dir := filepath.Dir(outputFilePath)
-	if stat, err := os.Stat(dir); err != nil || !stat.IsDir() {
-		logger.Error("Invalid directory for output file", slog.Any("error", err))
-		return "", errors.New("output directory does not exist or is not a directory")
-	}
-
-	client := ytdlib.Client{}
-	video, err := client.GetVideo(id)
-	if err != nil {
-		logger.Error("Error getting YouTube video", slog.Any("error", err))
-		return "", err
-	}
-
-	/*
-		itag code: 140, container: m4a, content: audio, bitrate: 128k
-		change the FindByItag parameter to 139 if you want smaller files (but with a bitrate of 48k)
-		https://gist.github.com/sidneys/7095afe4da4ae58694d128b1034e01e2
-	*/
-	formats := video.Formats.Itag(140)
-
-	/* in some cases, when attempting to download the audio
-	using the library github.com/kkdai/youtube,
-	the download fails (and shows the file size as 0 bytes)
-	until the second or third attempt. */
-	var fileSize int64
-	file, err := os.Create(outputFilePath)
-	if err != nil {
-		logger.Error("Error creating file", slog.Any("error", err))
-		return "", err
-	}
-
-	for fileSize == 0 {
-		stream, _, err := client.GetStream(video, &formats[0])
-		if err != nil {
-			logger.Error("Error getting stream", slog.Any("error", err))
-			return "", err
-		}
-
-		if _, err = io.Copy(file, stream); err != nil {
-			logger.Error("Error copying stream to file", slog.Any("error", err))
-			return "", err
-		}
-
-		fileSize, _ = GetFileSize(outputFilePath)
-	}
-	defer file.Close()
-
-	return outputFilePath + "m4a", nil
-}
-
-// downloadYTaudio2 downloads audio from a YouTube video using yt-dlp command line tool.
-func downloadYTaudio2(videoURL, outputFilePath string) (string, error) {
+// downloadYTaudio downloads audio from a YouTube video using yt-dlp command line tool.
+func downloadYTaudio(videoURL, outputFilePath string) (string, error) {
 	logger := utils.GetLogger()
 
 	dir := filepath.Dir(outputFilePath)
