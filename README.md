@@ -26,18 +26,6 @@ SeekTune is an implementation of Shazam's song recognition algorithm based on in
 git clone https://github.com/cgzirim/seek-tune.git
 cd seek-tune
 ```
-#### 🐳 Set Up with Docker
-Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
-1. Build and run the application:
-   ```Bash
-   docker-compose up --build
-   ```
-   Visit the app at http://localhost:8080
-2. To stop the application:
-   ```Bash
-   docker-compose down
-   ```
-
 #### 🎧 Spotify API Setup
 
 1. Get credentials: Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started) to create a Spotify app and obtain your **Client ID** and **Client Secret**.
@@ -49,6 +37,19 @@ Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose
    ```
 
 The app will automatically fetch and cache access tokens as needed.
+
+
+#### 🐳 Set Up with Docker
+Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+1. Build and run the application:
+   ```Bash
+   docker-compose up --build
+   ```
+   Visit the app at http://localhost:8080
+2. To stop the application:
+   ```Bash
+   docker-compose down
+   ```
 
 #### 💻 Set Up Natively
 Install dependencies for the backend
