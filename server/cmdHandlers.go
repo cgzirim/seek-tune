@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"song-recognition/db"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
@@ -254,6 +255,7 @@ func save(path string, force bool) {
 	}
 
 	if fileInfo.IsDir() {
+		var filePaths []string
 		err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Printf("Error walking the path %v: %v\n", filePath, err)
@@ -261,22 +263,66 @@ func save(path string, force bool) {
 			}
 			// Process only files, skip directories
 			if !info.IsDir() {
-				err := saveSong(filePath, force)
-				if err != nil {
-					fmt.Printf("Error saving song (%v): %v\n", filePath, err)
-				}
+				filePaths = append(filePaths, filePath)
 			}
 			return nil
 		})
 		if err != nil {
 			fmt.Printf("Error walking the directory %v: %v\n", path, err)
+			return
 		}
+
+		processFilesConCurrently(filePaths, force)
 	} else {
 		err := saveSong(path, force)
 		if err != nil {
 			fmt.Printf("Error saving song (%v): %v\n", path, err)
 		}
 	}
+}
+
+func processFilesConCurrently(filePaths []string, force bool) {
+	maxWorkers := runtime.NumCPU() / 2
+	numFiles := len(filePaths)
+
+	if numFiles == 0 {
+		return
+	}
+
+	if numFiles < maxWorkers {
+		maxWorkers = numFiles
+	}
+
+	jobs := make(chan string, numFiles)
+	results := make(chan error, numFiles)
+
+	for w := 0; w < maxWorkers; w++ {
+		go func(workerID int) {
+			for filePath := range jobs {
+				err := saveSong(filePath, force)
+				results <- err
+			}
+		}(w + 1)
+	}
+
+	for _, filePath := range filePaths {
+		jobs <- filePath
+	}
+	close(jobs)
+
+	successCount := 0
+	errorCount := 0
+	for i := 0; i < numFiles; i++ {
+		err := <-results
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	fmt.Printf("\n ->> Processed %d files: %d successful, %d failed\n", numFiles, successCount, errorCount)
 }
 
 func saveSong(filePath string, force bool) error {
