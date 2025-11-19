@@ -293,7 +293,7 @@ function App() {
   return (
     <div className="App">
       <div className="TopHeader">
-        <h2 style={{ color: "#374151" }}>!Shazam</h2>
+        <h2 style={{ color: "#374151" }}>SeekTune</h2>
         <h4 style={{ display: "flex", justifyContent: "flex-end" }}>
           <AnimatedNumber includeComma={true} animateToNumber={totalSongs} />
           &nbsp;Songs
