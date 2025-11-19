@@ -11,7 +11,6 @@ import (
 	"song-recognition/db"
 	"song-recognition/shazam"
 	"song-recognition/utils"
-	"song-recognition/wav"
 	"strings"
 	"sync"
 	"time"
@@ -134,7 +133,7 @@ func dlTrack(tracks []Track, path string) (int, error) {
 			fileName := fmt.Sprintf("%s - %s", trackCopy.Title, trackCopy.Artist)
 			filePath := filepath.Join(path, fileName)
 
-			filePath, err = downloadYTaudio2(ytID, filePath)
+			filePath, err = downloadYTaudio(ytID, filePath)
 			if err != nil {
 				logMessage := fmt.Sprintf("'%s' by '%s' could not be downloaded", trackCopy.Title, trackCopy.Artist)
 				logger.ErrorContext(ctx, logMessage, slog.Any("error", xerrors.New(err)))
@@ -227,22 +226,16 @@ func ProcessAndSaveSong(songFilePath, songTitle, songArtist, ytID string) error 
 	}
 	defer dbclient.Close()
 
-	wavFilePath, err := wav.ConvertToWAV(songFilePath)
-	if err != nil {
-		logger.Error("Failed to convert to WAV", slog.Any("error", err))
-		return err
-	}
-
 	songID, err := dbclient.RegisterSong(songTitle, songArtist, ytID)
 	if err != nil {
 		logger.Error("Failed to register song", slog.Any("error", err))
 		return fmt.Errorf("error registering song '%s' by '%s': %v", songTitle, songArtist, err)
 	}
 
-	fingerprint, err := shazam.FingerprintAudio(wavFilePath, songID)
+	fingerprint, err := shazam.FingerprintAudio(songFilePath, songID)
 	if err != nil {
 		dbclient.DeleteSongByID(songID)
-		logger.Error("Failed to create fingerprint", slog.String("wavFilePath", wavFilePath))
+		logger.Error("Failed to create fingerprint", slog.String("wavFilePath", songFilePath))
 		return fmt.Errorf("error generating fingerprint for %s by %s", songTitle, songArtist)
 	}
 
