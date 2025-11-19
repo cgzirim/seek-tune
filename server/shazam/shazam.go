@@ -5,7 +5,6 @@ package shazam
 
 import (
 	"fmt"
-	"math"
 	"song-recognition/db"
 	"song-recognition/utils"
 	"sort"
@@ -30,7 +29,8 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 		return nil, time.Since(startTime), fmt.Errorf("failed to get spectrogram of samples: %v", err)
 	}
 
-	peaks := ExtractPeaks(spectrogram, audioDuration)
+	peaks := ExtractPeaks(spectrogram, audioDuration, sampleRate)
+	// peaks := ExtractPeaksLMX(spectrogram, true)
 	sampleFingerprint := Fingerprint(peaks, utils.GenerateUniqueID())
 
 	sampleFingerprintMap := make(map[uint32]uint32)
@@ -38,7 +38,7 @@ func FindMatches(audioSample []float64, audioDuration float64, sampleRate int) (
 		sampleFingerprintMap[address] = couple.AnchorTimeMs
 	}
 
-	matches, _, err := FindMatchesFGP(sampleFingerprintMap)
+	matches, _, _ := FindMatchesFGP(sampleFingerprintMap)
 
 	return matches, time.Since(startTime), nil
 }
@@ -142,21 +142,32 @@ func filterMatches(
 }
 
 // analyzeRelativeTiming calculates a score for each song based on the
-// relative timing between the song and the sample's anchor times.
+// consistency of time offsets between the sample and database.
 func analyzeRelativeTiming(matches map[uint32][][2]uint32) map[uint32]float64 {
 	scores := make(map[uint32]float64)
+
 	for songID, times := range matches {
-		count := 0
-		for i := 0; i < len(times); i++ {
-			for j := i + 1; j < len(times); j++ {
-				sampleDiff := math.Abs(float64(times[i][0] - times[j][0]))
-				dbDiff := math.Abs(float64(times[i][1] - times[j][1]))
-				if math.Abs(sampleDiff-dbDiff) < 100 { // Allow some tolerance
-					count++
-				}
+		offsetCounts := make(map[int32]int)
+
+		for _, timePair := range times {
+			sampleTime := int32(timePair[0])
+			dbTime := int32(timePair[1])
+			offset := dbTime - sampleTime
+
+			// Bin offsets in 100ms buckets to allow for small timing variations
+			offsetBucket := offset / 100
+			offsetCounts[offsetBucket]++
+		}
+
+		maxCount := 0
+		for _, count := range offsetCounts {
+			if count > maxCount {
+				maxCount = count
 			}
 		}
-		scores[songID] = float64(count)
+
+		scores[songID] = float64(maxCount)
 	}
+
 	return scores
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"song-recognition/db"
 	"song-recognition/shazam"
 	"song-recognition/spotify"
@@ -34,19 +35,24 @@ const (
 var yellow = color.New(color.FgYellow)
 
 func find(filePath string) {
-	wavInfo, err := wav.ReadWavInfo(filePath)
+	wavFilePath, err := wav.ConvertToWAV(filePath)
 	if err != nil {
-		yellow.Println("Error reading wave info:", err)
+		yellow.Println("Error converting to WAV:", err)
 		return
 	}
 
-	samples, err := wav.WavBytesToSamples(wavInfo.Data)
+	fingerprint, err := shazam.FingerprintAudio(wavFilePath, utils.GenerateUniqueID())
 	if err != nil {
-		yellow.Println("Error converting to samples:", err)
+		yellow.Println("Error generating fingerprint for sample: ", err)
 		return
 	}
 
-	matches, searchDuration, err := shazam.FindMatches(samples, wavInfo.Duration, wavInfo.SampleRate)
+	sampleFingerprint := make(map[uint32]uint32)
+	for address, couple := range fingerprint {
+		sampleFingerprint[address] = couple.AnchorTimeMs
+	}
+
+	matches, searchDuration, err := shazam.FindMatchesFGP(sampleFingerprint)
 	if err != nil {
 		yellow.Println("Error finding matches:", err)
 		return
@@ -193,7 +199,7 @@ func serveHTTP(socketServer *socketio.Server, serveHTTPS bool, port string) {
 	}
 }
 
-func erase(songsDir string) {
+func erase(songsDir string, dbOnly bool, all bool) {
 	logger := utils.GetLogger()
 	ctx := context.Background()
 
@@ -216,26 +222,31 @@ func erase(songsDir string) {
 		logger.ErrorContext(ctx, msg, slog.Any("error", err))
 	}
 
-	// delete song files
-	err = filepath.Walk(songsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	fmt.Println("Database cleared")
 
-		if !info.IsDir() {
-			ext := filepath.Ext(path)
-			if ext == ".wav" || ext == ".m4a" {
-				err := os.Remove(path)
-				if err != nil {
-					return err
+	// delete song files only if -all flag is set
+	if all {
+		err = filepath.Walk(songsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if !info.IsDir() {
+				ext := filepath.Ext(path)
+				if ext == ".wav" || ext == ".m4a" {
+					err := os.Remove(path)
+					if err != nil {
+						return err
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			msg := fmt.Sprintf("Error walking through directory %s: %v\n", songsDir, err)
+			logger.ErrorContext(ctx, msg, slog.Any("error", err))
 		}
-		return nil
-	})
-	if err != nil {
-		msg := fmt.Sprintf("Error walking through directory %s: %v\n", songsDir, err)
-		logger.ErrorContext(ctx, msg, slog.Any("error", err))
+		fmt.Println("Songs folder cleared")
 	}
 
 	fmt.Println("Erase complete")
@@ -249,6 +260,7 @@ func save(path string, force bool) {
 	}
 
 	if fileInfo.IsDir() {
+		var filePaths []string
 		err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Printf("Error walking the path %v: %v\n", filePath, err)
@@ -256,22 +268,66 @@ func save(path string, force bool) {
 			}
 			// Process only files, skip directories
 			if !info.IsDir() {
-				err := saveSong(filePath, force)
-				if err != nil {
-					fmt.Printf("Error saving song (%v): %v\n", filePath, err)
-				}
+				filePaths = append(filePaths, filePath)
 			}
 			return nil
 		})
 		if err != nil {
 			fmt.Printf("Error walking the directory %v: %v\n", path, err)
+			return
 		}
+
+		processFilesConCurrently(filePaths, force)
 	} else {
 		err := saveSong(path, force)
 		if err != nil {
 			fmt.Printf("Error saving song (%v): %v\n", path, err)
 		}
 	}
+}
+
+func processFilesConCurrently(filePaths []string, force bool) {
+	maxWorkers := runtime.NumCPU() / 2
+	numFiles := len(filePaths)
+
+	if numFiles == 0 {
+		return
+	}
+
+	if numFiles < maxWorkers {
+		maxWorkers = numFiles
+	}
+
+	jobs := make(chan string, numFiles)
+	results := make(chan error, numFiles)
+
+	for w := 0; w < maxWorkers; w++ {
+		go func(workerID int) {
+			for filePath := range jobs {
+				err := saveSong(filePath, force)
+				results <- err
+			}
+		}(w + 1)
+	}
+
+	for _, filePath := range filePaths {
+		jobs <- filePath
+	}
+	close(jobs)
+
+	successCount := 0
+	errorCount := 0
+	for i := 0; i < numFiles; i++ {
+		err := <-results
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	fmt.Printf("\n ->> Processed %d files: %d successful, %d failed\n", numFiles, successCount, errorCount)
 }
 
 func saveSong(filePath string, force bool) error {

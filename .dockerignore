@@ -1,28 +1,88 @@
-# Binaries for programs and plugins
-*.exe
-*.ogg
-*.m4a
-*.zip
-*.exe~
-*.dll
-*.so
-*.dylib
+# Git
+.git
+.gitignore
+.gitattributes
 
-# Test binary, built with `go test -c`
-*.test
+# Documentation
+*.md
+!README.md
+LICENSE
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-**/songs
+# IDE
 .vscode
+.idea
+*.swp
+*.swo
+*~
 
-package-lock.json
+# OS
+.DS_Store
+Thumbs.db
 
-*sqlite3
+# Node
+client/node_modules
+client/.env.local
+client/.env.development.local
+client/.env.test.local
+client/.env.production.local
+client/build
+client/coverage
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+
+# Go
+server/seek-tune
+server/*.exe
+server/*.test
+server/*.out
+server/vendor/
+
+# Application data (don't copy into image)
+server/songs/**
+server/recordings/**
+server/snippets/**
+server/tmp/**
+server/db/*.sqlite3
+server/db/*.db
+
+# Audio files
+*.mp3
+*.wav
+*.m4a
+*.ogg
+*.flac
+*.aac
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+
+# Environment
 .env
+.env.*
+!.env.example
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+docker-compose*.yml
+!docker-compose.yml
+Dockerfile*
+!Dockerfile
+
+# WASM (already built separately if needed)
+wasm/fingerprint.wasm
+wasm/go.sum
+
+# Scripts
+scripts/
+appspec.yml
+
+# Logs
+*.log

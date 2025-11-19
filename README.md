@@ -8,21 +8,17 @@
 </a>
 </p>
 
-<p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view" target="_blank">Demo in Video</a></p>
+<p align="center"><a href="https://drive.google.com/file/d/1I2esH2U4DtXHsNgYbUi4OL-ukV5i_1PI/view" target="_blank">Demo in Video</a> | <a href="https://www.youtube.com/watch?v=a0CVCcb0RJM" target="_blank">How it was made (YouTube)</a></p>
 
 ## Description 🎼
 SeekTune is an implementation of Shazam's song recognition algorithm based on insights from these [resources](#resources--card_file_box). It integrates Spotify and YouTube APIs to find and download songs.
-
-[//]: # (## Current Limitations
-While the algorithm works excellently in matching a song with its exact file, it doesn't always find the right match from a recording. However, this project is still a work in progress. I'm hopeful about making it work, but I could definitely use some help :slightly_smiling_face:.   
-Additionally, it currently only supports song files in WAV format.
-)
 
 ## Installation :desktop_computer:
 ### Prerequisites
 - Golang: [Install Golang](https://golang.org/dl/)
 - FFmpeg: [Install FFmpeg](https://ffmpeg.org/download.html)
-- NPM: To run the client (frontend).
+- NPM: [Install Node](https://nodejs.org/en/download)
+- YT-DLP: [Install YT-DLP](https://github.com/yt-dlp/yt-dlp/wiki/Installation)
 
 ### Steps
 📦 Clone the repository:
@@ -42,27 +38,17 @@ Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [Docker Compose
    docker-compose down
    ```
 
-#### 🎧 Spotify API
+#### 🎧 Spotify API Setup
 
-To access Spotify metadata, the project now uses the official [Spotify Web API](https://developer.spotify.com/documentation/web-api/). This requires creating a developer application and retrieving a client ID and client secret.
+1. Get credentials: Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started) to create a Spotify app and obtain your **Client ID** and **Client Secret**.
 
-Follow the [official getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started#request-an-access-token) to:
+2. Configure: Create a `.env` file in the `server` directory:
+   ```bash
+   SPOTIFY_CLIENT_ID=your-client-id
+   SPOTIFY_CLIENT_SECRET=your-client-secret
+   ```
 
-1. Create a Spotify developer app.
-2. Copy your **Client ID** and **Client Secret**.
-
-##### Setting up Credentials
-Instead of using a credentials.json file, the application now reads these values from environment variables.
-
-Create a .env file in the server directory  with the following content:
-
-```
-SPOTIFY_CLIENT_ID=your-client-id
-SPOTIFY_CLIENT_SECRET=your-client-secret
-```
-
-Make sure this .env file is loaded into your environment before running the server.
-The application will automatically read this file to fetch and cache access tokens. If the token is expired or missing, a new one will be requested.
+The app will automatically fetch and cache access tokens as needed.
 
 #### 💻 Set Up Natively
 Install dependencies for the backend
@@ -109,7 +95,12 @@ go run *.go find <path-to-wav-file>
 ```
 #### ▸ Delete fingerprints and songs 🗑️ 
 ```
+# Delete only database (default)
 go run *.go erase
+go run *.go erase db
+
+# Delete both database and song files
+go run *.go erase all
 ```
 
 ## Example :film_projector:  

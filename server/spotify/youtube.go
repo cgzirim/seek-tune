@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"song-recognition/utils"
 
 	"errors"
 	"io"
@@ -214,4 +219,38 @@ func ytSearch(searchTerm string, limit int) (results []*SearchResult, err error)
 	}
 
 	return results, nil
+}
+
+// downloadYTaudio downloads audio from a YouTube video using yt-dlp command line tool.
+func downloadYTaudio(videoURL, outputFilePath string) (string, error) {
+	logger := utils.GetLogger()
+
+	dir := filepath.Dir(outputFilePath)
+	if stat, err := os.Stat(dir); err != nil || !stat.IsDir() {
+		logger.Error("Invalid directory for output file", slog.Any("error", err))
+		return "", errors.New("output directory does not exist or is not a directory")
+	}
+
+	_, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		logger.Error("yt-dlp not found in PATH", slog.Any("error", err))
+		return "", errors.New("yt-dlp is not installed or not in PATH")
+	}
+
+	audioFmt := "wav"
+	cmd := exec.Command(
+		"yt-dlp",
+		"-f", "bestaudio",
+		"--extract-audio",
+		"--audio-format", audioFmt,
+		"-o", outputFilePath,
+		videoURL,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Error("yt-dlp command failed", slog.String("output", string(output)), slog.Any("error", err))
+		return "", err
+	}
+	return outputFilePath + "." + audioFmt, nil
 }

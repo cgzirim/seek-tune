@@ -15,7 +15,8 @@ import { fetchFile } from '@ffmpeg/util';
 
 import AnimatedNumber from "./components/AnimatedNumber";
 
-const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+const server = process.env.REACT_APP_BACKEND_URL || "http://localhost:5500";
+const recordStereo = process.env.REACT_APP_RECORD_STEREO === "true" || false;
 // https://seek-tune-rq4gn.ondigitalocean.app/
 
 var socket = io(server);
@@ -91,7 +92,7 @@ function App() {
       try {
         const go = new window.Go();
         const result = await WebAssembly.instantiateStreaming(
-          fetch("/main.wasm"), 
+          fetch("/fingerprint.wasm"), 
           go.importObject
         );
         go.run(result.instance);
@@ -175,15 +176,15 @@ function App() {
         cleanUp();
 
         const inputFile = 'input.wav';
-        const outputFile = 'output_mono.wav';
+        const outputFile = 'output_formatted.wav';
 
-        // Convert audio to mono with a sample rate of 44100 Hz
         await ffmpeg.writeFile(inputFile, await fetchFile(blob))
         const exitCode = await ffmpeg.exec([
           '-i', inputFile,
           '-c', 'pcm_s16le',
           '-ar', '44100',
-          '-ac', '1',
+          '-ac', recordStereo ? '2' : '1',
+          '-acodec', 'pcm_s16le',
           '-f', 'wav',
           outputFile
         ]);
@@ -191,11 +192,11 @@ function App() {
           throw new Error(`FFmpeg exec failed with exit code: ${exitCode}`);
         }
 
-        const monoData = await ffmpeg.readFile(outputFile);
-        const monoBlob = new Blob([monoData.buffer], { type: 'audio/wav' });
+        const audioData = await ffmpeg.readFile(outputFile);
+        const audioBlob = new Blob([audioData.buffer], { type: 'audio/wav' });
 
         const reader = new FileReader();
-        reader.readAsArrayBuffer(monoBlob);
+        reader.readAsArrayBuffer(audioBlob);
         reader.onload = async (event) => {
           const arrayBuffer = event.target.result;
           const audioContext = new AudioContext();
@@ -205,7 +206,11 @@ function App() {
           const audioData = audioBufferDecoded.getChannelData(0);
           const audioArray = Array.from(audioData);
 
-          const result = genFingerprint(audioArray, audioBufferDecoded.sampleRate);
+          const result = genFingerprint(
+            audioArray,
+            audioBufferDecoded.sampleRate,
+            audioBufferDecoded.numberOfChannels
+          );
           if (result.error !== 0) {
             toast["error"](() => <div>An error occured</div>)
             console.log("An error occured: ", result)
@@ -288,7 +293,7 @@ function App() {
   return (
     <div className="App">
       <div className="TopHeader">
-        <h2 style={{ color: "#374151" }}>!Shazam</h2>
+        <h2 style={{ color: "#374151" }}>SeekTune</h2>
         <h4 style={{ display: "flex", justifyContent: "flex-end" }}>
           <AnimatedNumber includeComma={true} animateToNumber={totalSongs} />
           &nbsp;Songs

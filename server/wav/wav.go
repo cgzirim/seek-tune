@@ -94,48 +94,82 @@ func WriteWavFile(filename string, data []byte, sampleRate int, channels int, bi
 	return err
 }
 
-// WavInfo defines a struct containing information extracted from the WAV header
 type WavInfo struct {
-	Channels   int
-	SampleRate int
-	Data       []byte
-	Duration   float64
+	Channels            int
+	SampleRate          int
+	Duration            float64
+	Data                []byte
+	LeftChannelSamples  []float64
+	RightChannelSamples []float64
 }
 
+// ReadWavInfo reads a 16-bit PCM WAV file and returns its metadata and audio samples.
+// Supports mono and stereo files. Note that it only supports 16-bit PCM format.
 func ReadWavInfo(filename string) (*WavInfo, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-
 	if len(data) < 44 {
 		return nil, errors.New("invalid WAV file size (too small)")
 	}
 
-	// Read header chunks
+	// Parse PCM header to extract metadata
+	// https://en.wikipedia.org/wiki/WAV#WAV_file_header
 	var header WavHeader
-	err = binary.Read(bytes.NewReader(data[:44]), binary.LittleEndian, &header)
-	if err != nil {
+	if err := binary.Read(bytes.NewReader(data[:44]), binary.LittleEndian, &header); err != nil {
 		return nil, err
 	}
-
-	if string(header.ChunkID[:]) != "RIFF" || string(header.Format[:]) != "WAVE" || header.AudioFormat != 1 {
+	if string(header.ChunkID[:]) != "RIFF" ||
+		string(header.Format[:]) != "WAVE" ||
+		header.AudioFormat != 1 {
 		return nil, errors.New("invalid WAV header format")
 	}
 
-	// Extract information
 	info := &WavInfo{
 		Channels:   int(header.NumChannels),
 		SampleRate: int(header.SampleRate),
 		Data:       data[44:],
 	}
 
-	// Calculate audio duration (assuming data contains PCM data)
-	if header.BitsPerSample == 16 {
-		info.Duration = float64(len(info.Data)) / float64(int(header.NumChannels)*2*int(header.SampleRate))
-	} else {
-		return nil, errors.New("unsupported bits per sample format")
+	if header.BitsPerSample != 16 {
+		return nil, errors.New("unsupported bits‑per‑sample (expect 16‑bit PCM)")
 	}
+
+	sampleCount := len(info.Data) / 2
+	int16Buf := make([]int16, sampleCount)
+	if err := binary.Read(bytes.NewReader(info.Data), binary.LittleEndian, int16Buf); err != nil {
+		return nil, err
+	}
+
+	const scale = 1.0 / 32768.0 // 16‑bit normalisation factor
+
+	switch header.NumChannels {
+	case 1:
+		left := make([]float64, sampleCount)
+		for i, s := range int16Buf {
+			left[i] = float64(s) * scale
+		}
+		info.LeftChannelSamples = left
+
+	case 2:
+		frameCount := sampleCount / 2
+		left := make([]float64, frameCount)
+		right := make([]float64, frameCount)
+		for i := 0; i < frameCount; i++ {
+			left[i] = float64(int16Buf[2*i]) * scale
+			right[i] = float64(int16Buf[2*i+1]) * scale
+		}
+		info.LeftChannelSamples = left
+		info.RightChannelSamples = right
+
+	default:
+		return nil, errors.New("unsupported channel count (only mono/stereo)")
+	}
+
+	// Compute audio duration in seconds
+	info.Duration = float64(sampleCount) /
+		(float64(header.NumChannels) * float64(header.SampleRate))
 
 	return info, nil
 }
