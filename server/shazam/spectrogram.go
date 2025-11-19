@@ -8,13 +8,14 @@ import (
 )
 
 const (
-	dspRatio    = 4
-	freqBinSize = 1024
-	maxFreq     = 5000.0 // 5kHz
-	hopSize     = freqBinSize / 32
+	dspRatio   = 4
+	windowSize = 1024
+	maxFreq    = 5000.0         // 5kHz
+	hopSize    = windowSize / 2 // 50% overlap for better time-frequency resolution
+	windowType = "hanning"      // choices: "hanning" or "hamming"
 )
 
-func Spectrogram(sample []float64, sampleRate int) ([][]complex128, error) {
+func Spectrogram(sample []float64, sampleRate int) ([][]float64, error) {
 	filteredSample := LowPassFilter(maxFreq, float64(sampleRate), sample)
 
 	downsampledSample, err := Downsample(filteredSample, sampleRate, sampleRate/dspRatio)
@@ -22,31 +23,42 @@ func Spectrogram(sample []float64, sampleRate int) ([][]complex128, error) {
 		return nil, fmt.Errorf("couldn't downsample audio sample: %v", err)
 	}
 
-	numOfWindows := len(downsampledSample) / (freqBinSize - hopSize)
-	spectrogram := make([][]complex128, numOfWindows)
-
-	window := make([]float64, freqBinSize)
+	window := make([]float64, windowSize)
 	for i := range window {
-		window[i] = 0.54 - 0.46*math.Cos(2*math.Pi*float64(i)/(float64(freqBinSize)-1))
+		theta := 2 * math.Pi * float64(i) / float64(windowSize-1)
+		switch windowType {
+		case "hamming":
+			window[i] = 0.54 - 0.46*math.Cos(theta)
+		default: // Hanning window
+			window[i] = 0.5 - 0.5*math.Cos(theta)
+		}
 	}
 
+	// Initialize spectrogram slice
+	spectrogram := make([][]float64, 0)
+
 	// Perform STFT
-	for i := 0; i < numOfWindows; i++ {
-		start := i * hopSize
-		end := start + freqBinSize
-		if end > len(downsampledSample) {
-			end = len(downsampledSample)
-		}
+	for start := 0; start+windowSize <= len(downsampledSample); start += hopSize {
+		end := start + windowSize
 
-		bin := make([]float64, freqBinSize)
-		copy(bin, downsampledSample[start:end])
+		frame := make([]float64, windowSize)
+		copy(frame, downsampledSample[start:end])
 
-		// Apply Hamming window
+		// Apply window
 		for j := range window {
-			bin[j] *= window[j]
+			frame[j] *= window[j]
 		}
 
-		spectrogram[i] = FFT(bin)
+		// Perform FFT
+		fftResult := FFT(frame)
+
+		// Convert complex spectrum to magnitude spectrum
+		magnitude := make([]float64, len(fftResult)/2)
+		for j := range magnitude {
+			magnitude[j] = cmplx.Abs(fftResult[j])
+		}
+
+		spectrogram = append(spectrogram, magnitude)
 	}
 
 	return spectrogram, nil
@@ -107,43 +119,47 @@ func Downsample(input []float64, originalSampleRate, targetSampleRate int) ([]fl
 	return resampled, nil
 }
 
+// Peak represents a significant point in the spectrogram.
 type Peak struct {
-	Time float64
-	Freq complex128
+	Freq float64 // Frequency in Hz
+	Time float64 // Time in seconds
 }
 
 // ExtractPeaks analyzes a spectrogram and extracts significant peaks in the frequency domain over time.
-func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
+func ExtractPeaks(spectrogram [][]float64, audioDuration float64, sampleRate int) []Peak {
 	if len(spectrogram) < 1 {
 		return []Peak{}
 	}
 
 	type maxies struct {
 		maxMag  float64
-		maxFreq complex128
 		freqIdx int
 	}
 
-	bands := []struct{ min, max int }{{0, 10}, {10, 20}, {20, 40}, {40, 80}, {80, 160}, {160, 512}}
+	bands := []struct{ min, max int }{
+		{0, 10}, {10, 20}, {20, 40}, {40, 80}, {80, 160}, {160, 512},
+	}
 
 	var peaks []Peak
-	binDuration := audioDuration / float64(len(spectrogram))
+	frameDuration := audioDuration / float64(len(spectrogram))
 
-	for binIdx, bin := range spectrogram {
+	// Calculate frequency resolution (Hz per bin)
+	effectiveSampleRate := float64(sampleRate) / float64(dspRatio)
+	freqResolution := effectiveSampleRate / float64(windowSize)
+
+	for frameIdx, frame := range spectrogram {
 		var maxMags []float64
-		var maxFreqs []complex128
-		var freqIndices []float64
+		var freqIndices []int
 
 		binBandMaxies := []maxies{}
 		for _, band := range bands {
 			var maxx maxies
 			var maxMag float64
-			for idx, freq := range bin[band.min:band.max] {
-				magnitude := cmplx.Abs(freq)
-				if magnitude > maxMag {
-					maxMag = magnitude
+			for idx, mag := range frame[band.min:band.max] {
+				if mag > maxMag {
+					maxMag = mag
 					freqIdx := band.min + idx
-					maxx = maxies{magnitude, freq, freqIdx}
+					maxx = maxies{mag, freqIdx}
 				}
 			}
 			binBandMaxies = append(binBandMaxies, maxx)
@@ -151,8 +167,7 @@ func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
 
 		for _, value := range binBandMaxies {
 			maxMags = append(maxMags, value.maxMag)
-			maxFreqs = append(maxFreqs, value.maxFreq)
-			freqIndices = append(freqIndices, float64(value.freqIdx))
+			freqIndices = append(freqIndices, value.freqIdx)
 		}
 
 		// Calculate the average magnitude
@@ -160,17 +175,15 @@ func ExtractPeaks(spectrogram [][]complex128, audioDuration float64) []Peak {
 		for _, max := range maxMags {
 			maxMagsSum += max
 		}
-		avg := maxMagsSum / float64(len(maxFreqs)) // * coefficient
+		avg := maxMagsSum / float64(len(maxMags))
 
 		// Add peaks that exceed the average magnitude
 		for i, value := range maxMags {
 			if value > avg {
-				peakTimeInBin := freqIndices[i] * binDuration / float64(len(bin))
+				peakTime := float64(frameIdx) * frameDuration
+				peakFreq := float64(freqIndices[i]) * freqResolution
 
-				// Calculate the absolute time of the peak
-				peakTime := float64(binIdx)*binDuration + peakTimeInBin
-
-				peaks = append(peaks, Peak{Time: peakTime, Freq: maxFreqs[i]})
+				peaks = append(peaks, Peak{Time: peakTime, Freq: peakFreq})
 			}
 		}
 	}
